@@ -1,0 +1,3 @@
+.venv/
+crypto_trading.db
+__pycache__/
