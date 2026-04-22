@@ -10,6 +10,9 @@ class ActionType(str, enum.Enum):
     BUY = "BUY"
     SELL = "SELL"
 
+class RoleType(str, enum.Enum):
+    TRADER = "TRADER"
+    ADMIN = "ADMIN"
 
 class User(Base):
     __tablename__ = "users"
@@ -19,6 +22,7 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     fiat_balance = Column(Numeric(precision=15, scale=2), nullable=False, default=10000.00)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    role = Column(Enum(RoleType), nullable=False, default=RoleType.TRADER)
 
     # A user can have many portfolio entries
     portfolios = relationship("Portfolio", back_populates="owner")

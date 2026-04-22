@@ -1,20 +1,25 @@
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Optional, List
 import jwt
-from passlib.context import CryptContext
+import bcrypt
 
 import models
 import schemas
 from config import settings
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 def get_password_hash(password: str) -> str:
-    return pwd_context.hash(password)
+    # bcrypt requires bytes, so we encode the password
+    salt = bcrypt.gensalt()
+    hashed_password = bcrypt.hashpw(password.encode('utf-8'), salt)
+    # decode to return a string for storage in the DB
+    return hashed_password.decode('utf-8')
 
-def verify_password(plain_password, hashed_password) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return bcrypt.checkpw(
+        plain_password.encode('utf-8'),
+        hashed_password.encode('utf-8')
+    )
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()
@@ -29,6 +34,16 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
 
 def get_user_by_email(db: Session, email: str) -> Optional[models.User]:
     return db.query(models.User).filter(models.User.email == email).first()
+
+def get_user_by_id(db: Session, user_id: int) -> Optional[models.User]:
+    return db.query(models.User).filter(models.User.id == user_id).first()
+
+def get_all_users(db: Session) -> List[models.User]:
+    return db.query(models.User).all()
+
+def delete_user(db: Session, user: models.User):
+    db.delete(user)
+    db.commit()
 
 def create_user(db: Session, user: schemas.UserCreate) -> models.User:
     hashed_password = get_password_hash(user.password)

@@ -1,6 +1,5 @@
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, declarative_base
 
 # Define the database URL. For SQLite, it's a path to a file.
 # This will create a 'crypto_trading.db' file in your project directory.
