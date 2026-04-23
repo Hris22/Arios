@@ -109,3 +109,23 @@ def delete_user(user_id: int, db: Session = Depends(get_db), current_user: model
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     services.delete_user(db, user=user)
     return None
+
+@app.post("/api/trade/buy", response_model=schemas.TradeResponse)
+def buy_crypto_endpoint(request: schemas.TradeRequest, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    return services.buy_crypto(db, current_user, request.crypto_symbol, request.quantity)
+
+@app.post("/api/trade/sell", response_model=schemas.TradeResponse)
+def sell_crypto_endpoint(request: schemas.TradeRequest, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    return services.sell_crypto(db, current_user, request.crypto_symbol, request.quantity)
+
+@app.get("/api/portfolio", response_model=schemas.PortfolioFullResponse)
+def get_portfolio_endpoint(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    return services.get_user_portfolio(db, current_user)
+
+@app.get("/api/transactions", response_model=List[schemas.TradeResponse])
+def get_transactions_endpoint(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    return services.get_user_transactions(db, current_user)
+
+@app.post("/api/loan", response_model=schemas.LoanResponse)
+def request_loan_endpoint(request: schemas.LoanRequest, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    return services.request_loan(db, current_user, request.amount)

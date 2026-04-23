@@ -70,6 +70,8 @@ class Transaction(Base):
     quantity = Column(Numeric(precision=20, scale=8), nullable=False)
     execution_price = Column(Numeric(precision=20, scale=8), nullable=False)
     total_cost = Column(Numeric(precision=20, scale=4), nullable=False)
+    fee = Column(Numeric(precision=20, scale=4), nullable=False, default=0)
+    profit_loss = Column(Numeric(precision=20, scale=4), nullable=True)
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
 
     user = relationship("User", back_populates="transactions")

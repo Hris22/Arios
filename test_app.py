@@ -125,3 +125,93 @@ def test_admin_get_users(client, db_session):
     data = response.json()
     assert len(data) == 1
     assert data[0]["email"] == "admin@example.com"
+
+@pytest.fixture()
+def regular_user_token(client, db_session):
+    user = models.User(
+        email="trader@example.com",
+        hashed_password=get_password_hash("password123"),
+        fiat_balance=10000.0,
+        role=models.RoleType.TRADER
+    )
+    db_session.add(user)
+    db_session.commit()
+    login_resp = client.post("/api/login", data={"username": "trader@example.com", "password": "password123"})
+    return login_resp.json()["access_token"]
+
+def test_buy_crypto_minimum_trade(client, db_session, regular_user_token):
+    crypto = models.Cryptocurrency(symbol="BTC", name="Bitcoin", current_price=50000.0)
+    db_session.add(crypto)
+    db_session.commit()
+
+    # Try to buy for less than $10 (0.0001 BTC = $5)
+    response = client.post(
+        "/api/trade/buy",
+        headers={"Authorization": f"Bearer {regular_user_token}"},
+        json={"crypto_symbol": "BTC", "quantity": 0.0001}
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Minimum trade size is $10"
+
+def test_buy_crypto_success(client, db_session, regular_user_token):
+    crypto = models.Cryptocurrency(symbol="ETH", name="Ethereum", current_price=2000.0)
+    db_session.add(crypto)
+    db_session.commit()
+
+    # Buy 1 ETH
+    response = client.post(
+        "/api/trade/buy",
+        headers={"Authorization": f"Bearer {regular_user_token}"},
+        json={"crypto_symbol": "ETH", "quantity": 1.0}
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["crypto_symbol"] == "ETH"
+    assert data["action"] == "BUY"
+    assert data["quantity"] == 1.0
+    assert data["execution_price"] == 2000.0
+    assert data["fee"] == 2.0 # 0.1% of $2000
+    assert data["total_cost"] == 2002.0
+
+def test_sell_crypto_minimum_trade(client, db_session, regular_user_token):
+    crypto = models.Cryptocurrency(symbol="ADA", name="Cardano", current_price=1.0)
+    db_session.add(crypto)
+    db_session.commit()
+    
+    user = db_session.query(models.User).filter(models.User.email == "trader@example.com").first()
+    portfolio = models.Portfolio(user_id=user.id, crypto_id=crypto.id, quantity=100, average_buy_price=1.0)
+    db_session.add(portfolio)
+    db_session.commit()
+    
+    # Try to sell 5 ADA = $5
+    response = client.post(
+        "/api/trade/sell",
+        headers={"Authorization": f"Bearer {regular_user_token}"},
+        json={"crypto_symbol": "ADA", "quantity": 5.0}
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Minimum trade size is $10"
+
+def test_request_loan_success(client, db_session, regular_user_token):
+    response = client.post(
+        "/api/loan",
+        headers={"Authorization": f"Bearer {regular_user_token}"},
+        json={"amount": 5000.0}
+    )
+    assert response.status_code == 200
+    assert response.json()["approved"] is True
+    assert response.json()["new_fiat_balance"] == 15000.0 # Started with 10000
+
+def test_request_loan_denied_high_net_worth(client, db_session, regular_user_token):
+    user = db_session.query(models.User).filter(models.User.email == "trader@example.com").first()
+    user.fiat_balance = 55000.0 # Over 50000
+    db_session.commit()
+
+    response = client.post(
+        "/api/loan",
+        headers={"Authorization": f"Bearer {regular_user_token}"},
+        json={"amount": 5000.0}
+    )
+    assert response.status_code == 200
+    assert response.json()["approved"] is False
+    assert response.json()["new_fiat_balance"] == 55000.0
