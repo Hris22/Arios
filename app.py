@@ -13,6 +13,7 @@ import models
 import schemas
 import services
 from config import settings
+import chatbot
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
 
@@ -129,3 +130,9 @@ def get_transactions_endpoint(db: Session = Depends(get_db), current_user: model
 @app.post("/api/loan", response_model=schemas.LoanResponse)
 def request_loan_endpoint(request: schemas.LoanRequest, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     return services.request_loan(db, current_user, request.amount)
+
+@app.post("/api/chat", response_model=schemas.ChatResponse)
+def chat_with_consultant(request: schemas.ChatRequest, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    # Notice we pass the db session so the chatbot's tools can read live crypto prices
+    reply = chatbot.get_chat_response(db, current_user, request.message)
+    return {"reply": reply}

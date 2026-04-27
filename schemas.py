@@ -97,3 +97,10 @@ class LoanResponse(BaseModel):
     approved: bool
     message: str
     new_fiat_balance: float
+
+
+class ChatRequest(BaseModel):
+    message: str
+
+class ChatResponse(BaseModel):
+    reply: str

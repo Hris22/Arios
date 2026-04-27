@@ -215,3 +215,83 @@ def test_request_loan_denied_high_net_worth(client, db_session, regular_user_tok
     assert response.status_code == 200
     assert response.json()["approved"] is False
     assert response.json()["new_fiat_balance"] == 55000.0
+
+def test_chatbot_eth_info(client, db_session, regular_user_token):
+    crypto = models.Cryptocurrency(symbol="ETH", name="Ethereum", current_price=3000.0)
+    db_session.add(crypto)
+    db_session.commit()
+
+    response = client.post(
+        "/api/chat",
+        headers={"Authorization": f"Bearer {regular_user_token}"},
+        json={"message": "Can you give me some information and the current price of ETH?"}
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "reply" in data
+    assert "ETH" in data["reply"].upper()
+
+def test_chatbot_portfolio_context(client, db_session, regular_user_token):
+    crypto = models.Cryptocurrency(symbol="ETH", name="Ethereum", current_price=3000.0)
+    db_session.add(crypto)
+    
+    # Increase user's fiat balance so they can buy 20 ETH
+    user = db_session.query(models.User).filter(models.User.email == "trader@example.com").first()
+    user.fiat_balance = 100000.0
+    db_session.commit()
+
+    # Buy 20 ETH
+    buy_resp = client.post(
+        "/api/trade/buy",
+        headers={"Authorization": f"Bearer {regular_user_token}"},
+        json={"crypto_symbol": "ETH", "quantity": 20.0}
+    )
+    assert buy_resp.status_code == 200
+
+    # Ask the chatbot about ETH news and portfolio
+    chat_resp = client.post(
+        "/api/chat",
+        headers={"Authorization": f"Bearer {regular_user_token}"},
+        json={"message": "I want to know about ETH news and how much ETH I currently own in my portfolio."}
+    )
+    assert chat_resp.status_code == 200
+    data = chat_resp.json()
+    assert "reply" in data
+    # Check if the chatbot mentions the 20 ETH
+    assert "20" in data["reply"]
+
+def test_chatbot_invalid_crypto(client, db_session, regular_user_token):
+    # Ask the chatbot about an invalid coin named HRISCOIN
+    chat_resp = client.post(
+        "/api/chat",
+        headers={"Authorization": f"Bearer {regular_user_token}"},
+        json={"message": "Can you give me the price of HRISCOIN?"}
+    )
+    assert chat_resp.status_code == 200
+    data = chat_resp.json()
+    assert "reply" in data
+    # The chatbot should gracefully handle the missing coin and mention it in the reply
+    assert "HRISCOIN" in data["reply"].upper()
+
+@patch("chatbot.genai.GenerativeModel")
+def test_chatbot_mocked_api(mock_generative_model, client, db_session, regular_user_token):
+    # Setup the mock so that calling start_chat().send_message() returns our fake response
+    mock_chat = mock_generative_model.return_value.start_chat.return_value
+    mock_chat.send_message.return_value.text = "This is a fast, mocked response from Arios."
+
+    # Send a message to the chatbot
+    chat_resp = client.post(
+        "/api/chat",
+        headers={"Authorization": f"Bearer {regular_user_token}"},
+        json={"message": "Tell me about the crypto market."}
+    )
+    
+    assert chat_resp.status_code == 200
+    data = chat_resp.json()
+    
+    # Verify the response matches our mock
+    assert data["reply"] == "This is a fast, mocked response from Arios."
+    
+    # Verify that the Gemini API methods were actually called
+    mock_generative_model.return_value.start_chat.assert_called_once()
+    mock_chat.send_message.assert_called_once_with("Tell me about the crypto market.")
