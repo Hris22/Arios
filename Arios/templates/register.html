@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="flex items-center justify-center min-h-[80vh]">
+    <div class="card w-96 bg-base-100 shadow-xl">
+        <div class="card-body">
+            <h2 class="card-title justify-center text-2xl mb-4">Create an Account</h2>
+            
+            <form id="register-form" class="space-y-4">
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text">Email</span>
+                    </label>
+                    <input type="email" id="email" placeholder="email@example.com" class="input input-bordered w-full" required />
+                </div>
+                
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text">Password</span>
+                    </label>
+                    <input type="password" id="password" placeholder="••••••••" class="input input-bordered w-full" required />
+                </div>
+
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text">Confirm Password</span>
+                    </label>
+                    <input type="password" id="confirm-password" placeholder="••••••••" class="input input-bordered w-full" required />
+                </div>
+                
+                <div id="error-message" class="text-error text-sm hidden"></div>
+                
+                <div class="form-control mt-6">
+                    <button type="submit" id="register-btn" class="btn btn-primary w-full">Register</button>
+                </div>
+            </form>
+            
+            <div class="divider">OR</div>
+            
+            <div class="text-center">
+                <p class="text-sm">Already have an account?</p>
+                <a href="/login" class="link link-primary">Login here</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // If already logged in, redirect to home
+        if (localStorage.getItem('arios_token')) {
+            window.location.href = '/';
+        }
+
+        const registerForm = document.getElementById('register-form');
+        const errorMsg = document.getElementById('error-message');
+        const registerBtn = document.getElementById('register-btn');
+
+        registerForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+            
+            if (password !== confirmPassword) {
+                errorMsg.textContent = 'Passwords do not match.';
+                errorMsg.classList.remove('hidden');
+                return;
+            }
+
+            errorMsg.classList.add('hidden');
+            registerBtn.disabled = true;
+            registerBtn.innerHTML = '<span class="loading loading-spinner"></span> Registering...';
+
+            try {
+                // Register
+                const regResponse = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const regData = await regResponse.json();
+
+                if (!regResponse.ok) {
+                    errorMsg.textContent = regData.detail || 'Registration failed.';
+                    errorMsg.classList.remove('hidden');
+                    registerBtn.disabled = false;
+                    registerBtn.textContent = 'Register';
+                    return;
+                }
+
+                // Automatically login after successful registration
+                const formData = new URLSearchParams();
+                formData.append('username', email);
+                formData.append('password', password);
+
+                const loginResponse = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: formData
+                });
+
+                if (loginResponse.ok) {
+                    const loginData = await loginResponse.json();
+                    localStorage.setItem('arios_token', loginData.access_token);
+                    window.location.href = '/';
+                } else {
+                    // Fallback to login page if auto-login fails
+                    window.location.href = '/login';
+                }
+
+            } catch (error) {
+                errorMsg.textContent = 'An error occurred during registration. Please try again.';
+                errorMsg.classList.remove('hidden');
+                registerBtn.disabled = false;
+                registerBtn.textContent = 'Register';
+            }
+        });
+    });
+</script>
+{% endblock %}

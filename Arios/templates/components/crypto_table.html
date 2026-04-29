@@ -1,0 +1,51 @@
+<div class="overflow-x-auto">
+    <table class="table table-zebra w-full">
+        <!-- head -->
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Symbol</th>
+                <th>Price</th>
+                <th>1h Change</th>
+                <th>24h Change</th>
+                <th>7d Change</th>
+                <th>Market Cap</th>
+                <th>Volume (24h)</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for crypto in cryptos %}
+            <tr>
+                <td class="font-bold">{{ crypto.name }}</td>
+                <td>
+                    <div class="badge badge-ghost">{{ crypto.symbol }}</div>
+                </td>
+                <td>${{ "{:,.2f}".format(crypto.current_price) }}</td>
+                <td class="{% if crypto.change_1h and crypto.change_1h.startswith('-') %}text-error{% else %}text-success{% endif %}">
+                    {{ crypto.change_1h }}
+                </td>
+                <td class="{% if crypto.change_24h and crypto.change_24h.startswith('-') %}text-error{% else %}text-success{% endif %}">
+                    {{ crypto.change_24h }}
+                </td>
+                <td class="{% if crypto.change_7d and crypto.change_7d.startswith('-') %}text-error{% else %}text-success{% endif %}">
+                    {{ crypto.change_7d }}
+                </td>
+                <td>{{ crypto.market_cap }}</td>
+                <td>{{ crypto.volume_24h }}</td>
+                <td>
+                    <form hx-post="/api/watchlist" hx-target="#watchlist" class="m-0">
+                        <input type="hidden" name="symbol" value="{{ crypto.symbol }}">
+                        <button type="submit" class="btn btn-primary btn-xs">Add to Watchlist</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+            {% if not cryptos %}
+            <tr>
+                <td colspan="9" class="text-center py-4">No cryptocurrency data available.</td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>

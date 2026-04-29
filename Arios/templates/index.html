@@ -1,0 +1,298 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mx-auto">
+    <h1 class="text-3xl font-bold mb-6">Market Overview</h1>
+    
+    <!-- Temporary placeholder for our dashboard -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        <!-- Left/Center Column (Chart & Stats) -->
+        <div class="md:col-span-2 space-y-6">
+            <!-- Stats -->
+            <div class="stats shadow w-full bg-base-100" id="stats" hx-get="/components/stats" hx-trigger="load, every 60s">
+                <div class="flex justify-center p-4"><span class="loading loading-spinner"></span></div>
+            </div>
+            
+            <!-- Chart Placeholder -->
+            <div class="card bg-base-100 shadow-xl h-[450px]">
+                <div class="card-body">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="card-title" id="chart-title">BTC/USD Price Chart</h2>
+                        <select id="chart-symbol-select" class="select select-bordered select-sm">
+                            <option value="BTC">Bitcoin (BTC)</option>
+                            <option value="ETH">Ethereum (ETH)</option>
+                            <option value="SOL">Solana (SOL)</option>
+                            <option value="XRP">Ripple (XRP)</option>
+                            <option value="ADA">Cardano (ADA)</option>
+                        </select>
+                    </div>
+                    <div id="chart-container" class="w-full h-full">
+                        <div id="crypto-chart"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column (Watchlist & Chat) -->
+        <div class="space-y-6">
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body" id="watchlist" hx-get="/components/watchlist" hx-trigger="load, every 60s">
+                    <h2 class="card-title">Watchlist</h2>
+                    <div class="flex justify-center p-4"><span class="loading loading-spinner"></span></div>
+                </div>
+            </div>
+            
+        </div>
+        
+    </div>
+
+    <!-- Floating Chatbot -->
+    <div class="fixed bottom-6 right-6 z-50 flex flex-col items-end pointer-events-none">
+        <!-- Chat Window -->
+        <div id="chat-window" class="card bg-base-100 shadow-2xl h-[450px] w-80 sm:w-96 flex flex-col mb-4 hidden transform transition-all duration-300 origin-bottom-right pointer-events-auto border border-base-300">
+            <div class="card-body flex flex-col p-4 relative min-h-0 overflow-hidden">
+                <div class="flex justify-between items-center mb-2 flex-none">
+                    <h2 class="card-title text-lg">Arios Assistant</h2>
+                    <button id="close-chat-btn" class="btn btn-sm btn-circle btn-ghost hover:bg-base-200">✕</button>
+                </div>
+                
+                <!-- Chat Messages Area -->
+                <div id="chat-messages" class="flex-1 min-h-0 overflow-y-auto bg-base-200 rounded-box p-4 space-y-4 mb-4 border border-base-300 block" style="scrollbar-width: thin; scrollbar-color: #4b5563 transparent;">
+                    <style>
+                        #chat-messages::-webkit-scrollbar { width: 6px; }
+                        #chat-messages::-webkit-scrollbar-track { background: transparent; }
+                        #chat-messages::-webkit-scrollbar-thumb { background-color: #4b5563; border-radius: 10px; }
+                    </style>
+                    <div class="chat chat-start">
+                        <div class="chat-image avatar">
+                            <div class="w-8 rounded-full">
+                                <img src="/static/img/Arios_avatar.png" alt="Arios Avatar" />
+                            </div>
+                        </div>
+                        <div class="chat-bubble chat-bubble-primary text-sm">Hello! I'm Arios. Ask me about crypto prices or buy/sell actions!</div>
+                    </div>
+                </div>
+                
+                <!-- Chat Input -->
+                <form id="chat-form" class="flex gap-2 flex-none">
+                    <input type="text" id="chat-input" placeholder="Ask about crypto..." class="input input-bordered flex-1 input-sm" required autocomplete="off" />
+                    <button type="submit" id="chat-submit" class="btn btn-primary btn-sm">Send</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Floating Bubble Button -->
+        <button id="chat-bubble-btn" class="btn btn-primary btn-circle btn-lg shadow-lg group pointer-events-auto">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+            </svg>
+        </button>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const token = localStorage.getItem('arios_token');
+            if (!token) {
+                window.location.href = '/login';
+                return; // Stop execution
+            }
+
+            const chatWindow = document.getElementById('chat-window');
+            const chatBubbleBtn = document.getElementById('chat-bubble-btn');
+            const closeChatBtn = document.getElementById('close-chat-btn');
+
+            chatBubbleBtn.addEventListener('click', () => {
+                chatWindow.classList.toggle('hidden');
+            });
+
+            closeChatBtn.addEventListener('click', () => {
+                chatWindow.classList.add('hidden');
+            });
+
+            const chatForm = document.getElementById('chat-form');
+            const chatInput = document.getElementById('chat-input');
+            const chatMessages = document.getElementById('chat-messages');
+            const submitBtn = document.getElementById('chat-submit');
+
+            function addMessage(text, isUser) {
+                const div = document.createElement('div');
+                div.className = isUser ? 'chat chat-end' : 'chat chat-start';
+                
+                const avatar = document.createElement('div');
+                avatar.className = 'chat-image avatar';
+                avatar.innerHTML = isUser 
+                    ? `<div class="w-8 rounded-full bg-secondary text-secondary-content flex items-center justify-center"><span class="text-xs">U</span></div>`
+                    : `<div class="w-8 rounded-full"><img src="/static/img/Arios_avatar.png" alt="Arios Avatar" /></div>`;
+                
+                const bubble = document.createElement('div');
+                bubble.className = `chat-bubble text-sm ${isUser ? 'chat-bubble-secondary' : 'chat-bubble-primary'}`;
+                // We use innerHTML to allow Markdown formatting in bot responses (simple formatting for bold/italic if needed)
+                // If it's a user message, we stick to plain text to avoid XSS
+                if (isUser) {
+                    bubble.textContent = text;
+                } else {
+                    bubble.innerHTML = text.replace(/\n/g, '<br/>');
+                }
+                
+                div.appendChild(avatar);
+                div.appendChild(bubble);
+                chatMessages.appendChild(div);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+
+            chatForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const message = chatInput.value.trim();
+                if (!message) return;
+                
+                addMessage(message, true);
+                chatInput.value = '';
+                submitBtn.disabled = true;
+                
+                const loadingDiv = document.createElement('div');
+                loadingDiv.className = 'chat chat-start';
+                loadingDiv.innerHTML = `<div class="chat-image avatar"><div class="w-8 rounded-full"><img src="/static/img/Arios_avatar.png" alt="Arios Avatar" /></div></div><div class="chat-bubble chat-bubble-primary"><span class="loading loading-dots loading-sm"></span></div>`;
+                chatMessages.appendChild(loadingDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+
+                try {
+                    const currentToken = localStorage.getItem('arios_token');
+                    const res = await fetch('/api/chat', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + currentToken
+                        },
+                        body: JSON.stringify({ message })
+                    });
+                    
+                    chatMessages.removeChild(loadingDiv);
+                    
+                    if (res.ok) {
+                        const data = await res.json();
+                        addMessage(data.reply, false);
+                    } else {
+                        addMessage("Sorry, I couldn't connect to the server. (" + res.status + ")", false);
+                        // Clear token if unauthorized, might be expired
+                        if(res.status === 401) {
+                            localStorage.removeItem('arios_token');
+                            window.location.href = '/login';
+                        }
+                    }
+                } catch (error) {
+                    chatMessages.removeChild(loadingDiv);
+                    addMessage("An error occurred connecting to the assistant.", false);
+                } finally {
+                    submitBtn.disabled = false;
+                    chatInput.focus();
+                }
+            });
+        });
+    </script>
+
+    <!-- Crypto Table Container -->
+    <div class="mt-8 card bg-base-100 shadow-xl">
+        <div class="card-body" hx-get="/components/crypto_table" hx-trigger="load, every 60s">
+            <h2 class="card-title mb-4">Top Cryptocurrencies</h2>
+            <div class="flex justify-center p-4"><span class="loading loading-spinner"></span></div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    var chart; // Hold chart instance
+    var currentSymbol = 'BTC';
+    
+    function fetchAndRenderChart(symbol) {
+        document.getElementById('chart-title').innerText = `${symbol}/USD Price Chart`;
+        
+        fetch(`/api/chart/${symbol}`)
+            .then(response => response.json())
+            .then(data => {
+                var options = {
+                    series: [{
+                        name: 'candle',
+                        data: data
+                    }],
+                    chart: {
+                        type: 'candlestick',
+                        height: 350,
+                        background: 'transparent',
+                        toolbar: {
+                            show: false
+                        }
+                    },
+                    theme: {
+                        mode: 'dark'
+                    },
+                    plotOptions: {
+                        candlestick: {
+                            colors: {
+                                upward: '#00B8D9',
+                                downward: '#FF5630'
+                            }
+                        }
+                    },
+                    xaxis: {
+                        type: 'datetime',
+                        labels: {
+                            style: {
+                                colors: '#a6adbb'
+                            }
+                        }
+                    },
+                    yaxis: {
+                        tooltip: {
+                            enabled: true
+                        },
+                        labels: {
+                            style: {
+                                colors: '#a6adbb'
+                            },
+                            formatter: function (value) {
+                                return "$" + value.toLocaleString();
+                            }
+                        }
+                    },
+                    grid: {
+                        borderColor: '#2a323c'
+                    }
+                };
+
+                if (chart) {
+                    chart.destroy();
+                }
+                
+                chart = new ApexCharts(document.querySelector("#crypto-chart"), options);
+                chart.render();
+            })
+            .catch(error => {
+                console.error('Error fetching chart data:', error);
+                document.querySelector("#crypto-chart").innerHTML = '<p class="text-center text-error mt-10">Failed to load chart data.</p>';
+            });
+    }
+
+    // Initial load
+    fetchAndRenderChart(currentSymbol);
+
+    // Listen for dropdown changes using event delegation (so it survives HTMX swaps)
+    document.body.addEventListener('change', function(e) {
+        if (e.target && e.target.id === 'chart-symbol-select') {
+            currentSymbol = e.target.value;
+            fetchAndRenderChart(currentSymbol);
+            
+            // Trigger stats update
+            const statsDiv = document.getElementById('stats');
+            if (statsDiv) {
+                statsDiv.setAttribute('hx-get', `/components/stats?symbol=${currentSymbol}`);
+                if (typeof htmx !== 'undefined') {
+                    htmx.ajax('GET', `/components/stats?symbol=${currentSymbol}`, {target: '#stats', swap: 'innerHTML'});
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}
