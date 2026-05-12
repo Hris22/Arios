@@ -28,6 +28,8 @@ class User(Base):
     portfolios = relationship("Portfolio", back_populates="owner")
     # A user can have many transactions
     transactions = relationship("Transaction", back_populates="user")
+    # A user can have a watchlist
+    watchlists = relationship("Watchlist", back_populates="user")
 
 
 class Cryptocurrency(Base):
@@ -88,3 +90,15 @@ class HistoricalPrice(Base):
     high = Column(Numeric(precision=20, scale=8), nullable=False)
     low = Column(Numeric(precision=20, scale=8), nullable=False)
     close = Column(Numeric(precision=20, scale=8), nullable=False)
+
+
+class Watchlist(Base):
+    __tablename__ = "watchlists"
+    __table_args__ = (UniqueConstraint('user_id', 'crypto_id', name='_user_crypto_watchlist_uc'),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    crypto_id = Column(Integer, ForeignKey("cryptocurrencies.id"), nullable=False)
+
+    user = relationship("User", back_populates="watchlists")
+    crypto = relationship("Cryptocurrency")

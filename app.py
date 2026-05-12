@@ -1,4 +1,6 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Request
+from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from typing import List
 from datetime import timedelta
@@ -36,6 +38,10 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+# Mount the 'static' directory to serve static files like images, css, etc.
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
+
 # Dependency to get the database session
 def get_db():
     db = SessionLocal()
@@ -68,13 +74,89 @@ def get_current_admin_user(current_user: models.User = Depends(get_current_user)
     return current_user
 
 @app.get("/")
-def read_root():
-    return {"message": "Welcome to the Crypto API!"}
+def read_root(request: Request):
+    return templates.TemplateResponse(request=request, name="index.html")
+
+@app.get("/login")
+def login_page(request: Request):
+    return templates.TemplateResponse(request=request, name="login.html")
+
+@app.get("/register")
+def register_page(request: Request):
+    return templates.TemplateResponse(request=request, name="register.html")
+
+@app.get("/profile")
+def profile_page(request: Request):
+    return templates.TemplateResponse(request=request, name="profile.html")
+
+@app.get("/admin")
+def admin_page(request: Request):
+    return templates.TemplateResponse(request=request, name="admin.html")
+
+@app.get("/components/profile_data")
+def profile_data(request: Request, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    portfolio = services.get_user_portfolio(db, current_user)
+    transactions = services.get_user_transactions(db, current_user)
+    return templates.TemplateResponse(request=request, name="components/profile_data.html", context={"user": current_user, "portfolio": portfolio, "transactions": transactions})
+
+@app.get("/components/watchlist")
+def get_watchlist(request: Request, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user), edit_mode: bool = False):
+    watchlist_items = db.query(models.Watchlist).filter(models.Watchlist.user_id == current_user.id).all()
+    cryptos = [item.crypto for item in watchlist_items]
+    return templates.TemplateResponse(request=request, name="components/watchlist.html", context={"cryptos": cryptos, "edit_mode": edit_mode})
+
+from fastapi import Form
+
+@app.post("/api/watchlist")
+def add_to_watchlist(request: Request, symbol: str = Form(...), db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    crypto = db.query(models.Cryptocurrency).filter(models.Cryptocurrency.symbol == symbol.upper()).first()
+    if not crypto:
+        # Instead of 404, we can just return the watchlist unchanged, or maybe add an error message context.
+        # But for simplicity, let's just return the watchlist.
+        return get_watchlist(request, db, current_user, edit_mode=False)
+    
+    existing = db.query(models.Watchlist).filter(models.Watchlist.user_id == current_user.id, models.Watchlist.crypto_id == crypto.id).first()
+    if not existing:
+        new_item = models.Watchlist(user_id=current_user.id, crypto_id=crypto.id)
+        db.add(new_item)
+        db.commit()
+        
+    return get_watchlist(request, db, current_user, edit_mode=False)
+
+@app.delete("/api/watchlist/{symbol}")
+def remove_from_watchlist(symbol: str, request: Request, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    crypto = db.query(models.Cryptocurrency).filter(models.Cryptocurrency.symbol == symbol.upper()).first()
+    if not crypto:
+        raise HTTPException(status_code=404, detail="Cryptocurrency not found")
+        
+    item = db.query(models.Watchlist).filter(models.Watchlist.user_id == current_user.id, models.Watchlist.crypto_id == crypto.id).first()
+    if item:
+        db.delete(item)
+        db.commit()
+        
+    return get_watchlist(request, db, current_user, edit_mode=True)
+
+@app.get("/components/stats")
+def get_stats(request: Request, symbol: str = "BTC", db: Session = Depends(get_db)):
+    crypto = db.query(models.Cryptocurrency).filter(models.Cryptocurrency.symbol == symbol.upper()).first()
+    return templates.TemplateResponse(request=request, name="components/stats.html", context={"crypto": crypto})
+
+@app.get("/components/crypto_table")
+def get_crypto_table(request: Request, db: Session = Depends(get_db)):
+    cryptos = db.query(models.Cryptocurrency).all()
+    return templates.TemplateResponse(request=request, name="components/crypto_table.html", context={"cryptos": cryptos})
 
 @app.get("/api/cryptos", response_model=List[schemas.CryptoResponse])
 def get_cryptos(db: Session = Depends(get_db)):
     cryptos = db.query(models.Cryptocurrency).all()
     return cryptos
+
+@app.get("/api/chart/{symbol}")
+def get_chart_data(symbol: str, db: Session = Depends(get_db)):
+    data = services.get_real_candlestick_data(symbol, days=30)
+    if not data:
+        raise HTTPException(status_code=404, detail="Cryptocurrency data not found")
+    return data
 
 @app.post("/api/register", response_model=schemas.UserResponse, status_code=status.HTTP_201_CREATED)
 def register_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
@@ -95,7 +177,7 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
         )
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = services.create_access_token(
-        data={"sub": user.email}, expires_delta=access_token_expires
+        data={"sub": user.email, "role": user.role.value}, expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
 

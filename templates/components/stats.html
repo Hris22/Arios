@@ -1,0 +1,18 @@
+<div class="stat">
+    <div class="stat-title">{{ crypto.symbol if crypto else 'Crypto' }} Price</div>
+    {% if crypto %}
+    <div class="stat-value text-primary">${{ "{:,.2f}".format(crypto.current_price) }}</div>
+    {% if crypto.change_24h and crypto.change_24h.startswith('-') %}
+        <div class="stat-desc text-error">↘︎ {{ crypto.change_24h }} (24h)</div>
+    {% else %}
+        <div class="stat-desc text-success">↗︎ {{ crypto.change_24h }} (24h)</div>
+    {% endif %}
+    {% else %}
+    <div class="stat-value text-primary">Loading...</div>
+    {% endif %}
+</div>
+<div class="stat">
+    <div class="stat-title">Market Overview</div>
+    <div class="stat-value text-secondary">Active</div>
+    <div class="stat-desc">Updating Live</div>
+</div>

@@ -54,7 +54,7 @@ def client(db_session, monkeypatch):
 def test_read_root(client):
     response = client.get("/")
     assert response.status_code == 200
-    assert response.json() == {"message": "Welcome to the Crypto API!"}
+    assert "text/html" in response.headers.get("content-type", "")
 
 def test_register_user(client):
     response = client.post(
@@ -273,10 +273,10 @@ def test_chatbot_invalid_crypto(client, db_session, regular_user_token):
     # The chatbot should gracefully handle the missing coin and mention it in the reply
     assert "HRISCOIN" in data["reply"].upper()
 
-@patch("chatbot.genai.GenerativeModel")
-def test_chatbot_mocked_api(mock_generative_model, client, db_session, regular_user_token):
-    # Setup the mock so that calling start_chat().send_message() returns our fake response
-    mock_chat = mock_generative_model.return_value.start_chat.return_value
+@patch("chatbot.client")
+def test_chatbot_mocked_api(mock_chatbot_client, client, db_session, regular_user_token):
+    # Setup the mock so that calling client.chats.create().send_message() returns our fake response
+    mock_chat = mock_chatbot_client.chats.create.return_value
     mock_chat.send_message.return_value.text = "This is a fast, mocked response from Arios."
 
     # Send a message to the chatbot
@@ -285,13 +285,13 @@ def test_chatbot_mocked_api(mock_generative_model, client, db_session, regular_u
         headers={"Authorization": f"Bearer {regular_user_token}"},
         json={"message": "Tell me about the crypto market."}
     )
-    
+
     assert chat_resp.status_code == 200
     data = chat_resp.json()
-    
+
     # Verify the response matches our mock
     assert data["reply"] == "This is a fast, mocked response from Arios."
-    
+
     # Verify that the Gemini API methods were actually called
-    mock_generative_model.return_value.start_chat.assert_called_once()
+    mock_chatbot_client.chats.create.assert_called_once()
     mock_chat.send_message.assert_called_once_with("Tell me about the crypto market.")

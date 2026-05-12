@@ -1,0 +1,47 @@
+<div class="flex justify-between items-center mb-2">
+    <h2 class="card-title">Watchlist</h2>
+</div>
+
+<ul class="menu bg-base-200 rounded-box w-full mb-4 overflow-y-auto max-h-64 flex-nowrap">
+    {% for crypto in cryptos %}
+    <li class="flex flex-row items-center justify-between p-0">
+        <a class="flex-grow" onclick="document.getElementById('chart-symbol-select').value='{{ crypto.symbol }}'; document.getElementById('chart-symbol-select').dispatchEvent(new Event('change', { bubbles: true }));">
+            {{ crypto.symbol }} 
+            {% if crypto.change_24h and crypto.change_24h.startswith('-') %}
+                <span class="badge badge-error badge-sm ml-auto">{{ crypto.change_24h }}</span>
+            {% else %}
+                <span class="badge badge-success badge-sm ml-auto">{{ crypto.change_24h }}</span>
+            {% endif %}
+        </a>
+        {% if edit_mode %}
+        <button class="btn btn-error btn-xs btn-square mr-2" hx-delete="/api/watchlist/{{ crypto.symbol }}" hx-target="#watchlist">✕</button>
+        {% endif %}
+    </li>
+    {% endfor %}
+    {% if not cryptos %}
+    <li><a class="text-gray-500">Your watchlist is empty.</a></li>
+    {% endif %}
+</ul>
+
+<div class="flex gap-2 mb-2 justify-center">
+    <!-- Plus Button to toggle Add Mode -->
+    <button class="btn btn-outline btn-sm w-1/2" onclick="document.getElementById('add-watchlist-container').classList.toggle('hidden')">➕</button>
+    <!-- Minus Button to toggle Edit Mode -->
+    <button class="btn btn-outline btn-sm w-1/2" hx-get="/components/watchlist?edit_mode={{ 'false' if edit_mode else 'true' }}" hx-target="#watchlist">➖</button>
+</div>
+
+<div id="add-watchlist-container" class="hidden">
+    <form hx-post="/api/watchlist" hx-target="#watchlist" class="flex gap-2 mt-2">
+        <input type="text" name="symbol" placeholder="Symbol (e.g. BTC)" class="input input-bordered input-sm flex-1 text-base-content" required>
+        <button type="submit" class="btn btn-primary btn-sm">Add</button>
+    </form>
+</div>
+
+<select id="chart-symbol-select" class="select select-bordered select-sm" hx-swap-oob="true">
+    {% for crypto in cryptos %}
+    <option value="{{ crypto.symbol }}">{{ crypto.name }} ({{ crypto.symbol }})</option>
+    {% endfor %}
+    {% if not cryptos %}
+    <option value="BTC">Bitcoin (BTC)</option>
+    {% endif %}
+</select>

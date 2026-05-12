@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mx-auto">
+    <h1 class="text-3xl font-bold mb-6">User Profile</h1>
+    <div id="profile-container" hx-get="/components/profile_data" hx-trigger="load">
+        <div class="flex justify-center p-10"><span class="loading loading-spinner loading-lg"></span></div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const token = localStorage.getItem('arios_token');
+    if (!token) {
+        window.location.href = '/login';
+    }
+});
+</script>
+{% endblock %}

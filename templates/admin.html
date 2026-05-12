@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mx-auto p-4">
+    <h1 class="text-3xl font-bold mb-6">Admin Panel - Users</h1>
+    
+    <div id="alert-container"></div>
+    
+    <div class="overflow-x-auto bg-base-100 shadow-md rounded-lg">
+        <table class="table w-full">
+            <thead>
+                <tr>
+                    <th>User ID</th>
+                    <th>Email</th>
+                    <th>Fiat Balance</th>
+                    <th>Role</th>
+                    <th>Created At</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="users-table-body">
+                <!-- Rows will be injected here -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- DaisyUI Modal -->
+<dialog id="delete_modal" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg">Confirm Deletion</h3>
+    <p class="py-4">Are you sure you want to delete user <span id="delete-user-email" class="font-bold"></span>?</p>
+    <div class="modal-action">
+      <form method="dialog">
+        <button class="btn">Cancel</button>
+      </form>
+      <button class="btn btn-error" id="confirm-delete-btn">Delete</button>
+    </div>
+  </div>
+</dialog>
+
+<script>
+    let users = [];
+    let userToDeleteId = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const token = localStorage.getItem('arios_token');
+        if (!token) {
+            window.location.href = '/';
+            return;
+        }
+        
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            if (payload.role !== 'ADMIN') {
+                window.location.href = '/';
+                return;
+            }
+        } catch (e) {
+            window.location.href = '/';
+            return;
+        }
+        
+        fetchUsers();
+    });
+
+    function showAlert(message, type = 'success') {
+        const container = document.getElementById('alert-container');
+        const alertClass = type === 'success' ? 'alert-success' : 'alert-error';
+        container.innerHTML = `
+            <div class="alert ${alertClass} mb-4">
+                <span>${message}</span>
+            </div>
+        `;
+        setTimeout(() => {
+            container.innerHTML = '';
+        }, 3000);
+    }
+
+    async function fetchUsers() {
+        const token = localStorage.getItem('arios_token');
+        try {
+            const response = await fetch('/api/admin/users', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            if (response.ok) {
+                users = await response.json();
+                renderTable();
+            } else {
+                showAlert('Failed to fetch users', 'error');
+            }
+        } catch (error) {
+            showAlert('Error fetching users', 'error');
+        }
+    }
+
+    function renderTable() {
+        const tbody = document.getElementById('users-table-body');
+        tbody.innerHTML = '';
+        
+        users.forEach(user => {
+            const tr = document.createElement('tr');
+            
+            // Format Fiat Balance to currency (USD)
+            const formatter = new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD'
+            });
+            
+            // Assume fiat_balance is a float or integer, default to 0 if undefined
+            const balance = user.fiat_balance !== undefined ? user.fiat_balance : 0;
+            const formattedBalance = formatter.format(balance);
+            
+            // Format Created At Date
+            const createdDate = user.created_at ? new Date(user.created_at).toLocaleString() : 'N/A';
+            
+            tr.innerHTML = `
+                <td>${user.id}</td>
+                <td>${user.email}</td>
+                <td>${formattedBalance}</td>
+                <td><div class="badge ${user.role === 'ADMIN' ? 'badge-primary' : 'badge-ghost'}">${user.role}</div></td>
+                <td>${createdDate}</td>
+                <td>
+                    <button class="btn btn-sm btn-error" onclick="openDeleteModal(${user.id}, '${user.email}')">Delete</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function openDeleteModal(userId, userEmail) {
+        userToDeleteId = userId;
+        document.getElementById('delete-user-email').textContent = userEmail;
+        document.getElementById('delete_modal').showModal();
+    }
+
+    document.getElementById('confirm-delete-btn').addEventListener('click', async () => {
+        if (!userToDeleteId) return;
+        
+        const token = localStorage.getItem('arios_token');
+        try {
+            const response = await fetch(`/api/admin/users/${userToDeleteId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            if (response.ok) {
+                showAlert('User deleted successfully', 'success');
+                document.getElementById('delete_modal').close();
+                fetchUsers(); // Refresh the table
+            } else {
+                showAlert('Failed to delete user', 'error');
+                document.getElementById('delete_modal').close();
+            }
+        } catch (error) {
+            showAlert('Error deleting user', 'error');
+            document.getElementById('delete_modal').close();
+        }
+    });
+</script>
+{% endblock %}

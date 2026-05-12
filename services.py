@@ -262,11 +262,12 @@ def request_loan(db: Session, user: models.User, amount: float):
     portfolio_data = get_user_portfolio(db, user)
     total_net_worth = portfolio_data["summary"]["total_net_worth"]
     
-    if total_net_worth >= 50000:
+    if total_net_worth+amount >= 50000:
         return {
             "approved": False,
             "message": "Loan denied: Total net worth is 50,000 or more.",
-            "new_fiat_balance": float(user.fiat_balance)
+            "new_fiat_balance": float(user.fiat_balance),
+            "new_net_worth": total_net_worth
         }
         
     user.fiat_balance = float(user.fiat_balance) + amount
@@ -276,5 +277,35 @@ def request_loan(db: Session, user: models.User, amount: float):
     return {
         "approved": True,
         "message": f"Loan approved for {amount}. Added to your fiat balance.",
-        "new_fiat_balance": float(user.fiat_balance)
+        "new_fiat_balance": float(user.fiat_balance),
+        "new_net_worth": total_net_worth + amount
     }
+
+import urllib.request
+import json
+
+def get_real_candlestick_data(symbol: str, days: int = 30):
+    # Binance uses USDT pairs (e.g., BTCUSDT, ETHUSDT)
+    binance_symbol = f"{symbol.upper()}USDT"
+    url = f"https://api.binance.com/api/v3/klines?symbol={binance_symbol}&interval=1d&limit={days}"
+    
+    try:
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req) as response:
+            data = json.loads(response.read().decode())
+            
+        chart_data = []
+        for kline in data:
+            chart_data.append({
+                "x": kline[0], # Open time in ms
+                "y": [
+                    float(kline[1]), # Open
+                    float(kline[2]), # High
+                    float(kline[3]), # Low
+                    float(kline[4])  # Close
+                ]
+            })
+        return chart_data
+    except Exception as e:
+        print(f"Error fetching chart data from Binance: {e}")
+        return []

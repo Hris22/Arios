@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, EmailStr
 from datetime import datetime
 from typing import Optional, List
 
@@ -23,7 +23,7 @@ class CryptoResponse(CryptoBase):
 
 
 class UserCreate(BaseModel):
-    email: str
+    email: EmailStr
     password: str
 
 
@@ -97,6 +97,7 @@ class LoanResponse(BaseModel):
     approved: bool
     message: str
     new_fiat_balance: float
+    new_net_worth: float
 
 
 class ChatRequest(BaseModel):

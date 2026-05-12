@@ -1,4 +1,5 @@
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from sqlalchemy.orm import Session
 
 from config import settings
@@ -6,8 +7,7 @@ import services
 import models
 
 # Configure the Gemini API globally
-if settings.GEMINI_API_KEY:
-    genai.configure(api_key=settings.GEMINI_API_KEY)
+client = genai.Client(api_key=settings.GEMINI_API_KEY) if settings.GEMINI_API_KEY else None
 
 SYSTEM_PROMPT = """
 You are Arios, an expert cryptocurrency investing consultant.
@@ -19,7 +19,7 @@ Be concise, professional, and helpful.
 """
 
 def get_chat_response(db: Session, current_user: models.User, user_message: str) -> str:
-    if not settings.GEMINI_API_KEY:
+    if not client:
         return "System Error: Gemini API Key is not configured."
 
     # 1. Define the tools (functions) Gemini can use
@@ -63,14 +63,15 @@ def get_chat_response(db: Session, current_user: models.User, user_message: str)
         return services.get_user_portfolio(db, current_user)
 
     # 2. Initialize the model with the tools and persona
-    model = genai.GenerativeModel(
-        model_name="gemini-3-flash-preview",
-        system_instruction=SYSTEM_PROMPT,
-        tools=[get_crypto_price_and_stats, get_recent_crypto_news, get_user_portfolio]
+    chat = client.chats.create(
+        model="gemini-2.5-flash",
+        config=types.GenerateContentConfig(
+            system_instruction=SYSTEM_PROMPT,
+            tools=[get_crypto_price_and_stats, get_recent_crypto_news, get_user_portfolio],
+        )
     )
 
-    # 3. Start chat with automatic function calling enabled, and send the message
-    chat = model.start_chat(enable_automatic_function_calling=True)
+    # 3. Send the message
     response = chat.send_message(user_message)
     
     return response.text

@@ -1,0 +1,517 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mx-auto">
+    <h1 class="text-3xl font-bold mb-6">Market Overview</h1>
+    
+    <!-- Temporary placeholder for our dashboard -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        <!-- Left/Center Column (Chart & Stats) -->
+        <div class="md:col-span-2 space-y-6">
+            <!-- Stats -->
+            <div class="stats shadow w-full bg-base-100" id="stats" hx-get="/components/stats" hx-trigger="load, every 60s">
+                <div class="flex justify-center p-4"><span class="loading loading-spinner"></span></div>
+            </div>
+            
+            <!-- Chart Placeholder -->
+            <div class="card bg-base-100 shadow-xl h-[450px]">
+                <div class="card-body">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="card-title" id="chart-title">BTC/USD Price Chart</h2>
+                        <select id="chart-symbol-select" class="select select-bordered select-sm">
+                            <option value="BTC">Bitcoin (BTC)</option>
+                            <option value="ETH">Ethereum (ETH)</option>
+                            <option value="SOL">Solana (SOL)</option>
+                            <option value="XRP">Ripple (XRP)</option>
+                            <option value="ADA">Cardano (ADA)</option>
+                        </select>
+                    </div>
+                    <div id="chart-container" class="w-full h-full">
+                        <div id="crypto-chart"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column (Watchlist & Trade) -->
+        <div class="space-y-6 "> 
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body" id="watchlist" hx-get="/components/watchlist" hx-trigger="load, every 60s">
+                    <h2 class="card-title">Watchlist</h2>
+                    <div class="flex justify-center p-4"><span class="loading loading-spinner"></span></div>
+                </div>
+            </div>
+            
+            <!-- Trade Component -->
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    <h2 class="card-title">Trade</h2>
+                    
+                    <div role="tablist" class="tabs tabs-boxed mb-4">
+                        <a role="tab" class="tab tab-active" id="tab-buy" onclick="switchTradeTab('buy')">Buy</a>
+                        <a role="tab" class="tab" id="tab-sell" onclick="switchTradeTab('sell')">Sell</a>
+                    </div>
+                    
+                    <!-- Buy Form -->
+                    <div id="buy-form" class="space-y-4">
+                        <div class="form-control w-full">
+                            <label class="label"><span class="label-text">Select Crypto</span></label>
+                            <select id="buy-crypto-select" class="select select-bordered w-full">
+                                <option disabled selected>Loading...</option>
+                            </select>
+                        </div>
+                        <div class="form-control w-full">
+                            <label class="label"><span class="label-text">Amount to Buy</span></label>
+                            <input type="number" id="buy-amount" placeholder="0.00" class="input input-bordered w-full" step="any" min="0" />
+                        </div>
+                        <button class="btn btn-success w-full" onclick="prepareTrade('buy')">Buy</button>
+                    </div>
+
+                    <!-- Sell Form -->
+                    <div id="sell-form" class="space-y-4 hidden">
+                        <div class="form-control w-full">
+                            <label class="label"><span class="label-text">Select Crypto to Sell</span></label>
+                            <select id="sell-crypto-select" class="select select-bordered w-full">
+                                <option disabled selected>Loading...</option>
+                            </select>
+                        </div>
+                        <div class="form-control w-full">
+                            <label class="label"><span class="label-text">Amount to Sell</span></label>
+                            <input type="number" id="sell-amount" placeholder="0.00" class="input input-bordered w-full" step="any" min="0" />
+                        </div>
+                        <button class="btn btn-error w-full" onclick="prepareTrade('sell')">Sell</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+
+    <!-- Floating Chatbot -->
+    <div class="fixed bottom-6 right-12 z-50 flex flex-col items-end pointer-events-none">
+        <!-- Chat Window -->
+        <div id="chat-window" class="card bg-base-100 shadow-2xl h-[450px] w-80 sm:w-96 flex flex-col mb-4 hidden transform transition-all duration-300 origin-bottom-right pointer-events-auto border border-base-300">
+            <div class="card-body flex flex-col p-4 relative min-h-0 overflow-hidden">
+                <div class="flex justify-between items-center mb-2 flex-none">
+                    <h2 class="card-title text-lg">Arios Assistant</h2>
+                    <button id="close-chat-btn" class="btn btn-sm btn-circle btn-ghost hover:bg-base-200">✕</button>
+                </div>
+                
+                <!-- Chat Messages Area -->
+                <div id="chat-messages" class="flex-1 min-h-0 overflow-y-auto bg-base-200 rounded-box p-4 space-y-4 mb-4 border border-base-300 block" style="scrollbar-width: thin; scrollbar-color: #4b5563 transparent;">
+                    <style>
+                        #chat-messages::-webkit-scrollbar { width: 6px; }
+                        #chat-messages::-webkit-scrollbar-track { background: transparent; }
+                        #chat-messages::-webkit-scrollbar-thumb { background-color: #4b5563; border-radius: 10px; }
+                    </style>
+                    <div class="chat chat-start">
+                        <div class="chat-image avatar">
+                            <div class="w-8 rounded-full bg-transparent">
+                                <img src="/static/img/Arios_avatar.png" alt="Arios Avatar" />
+                            </div>
+                        </div>
+                        <div class="chat-bubble chat-bubble-primary text-sm">Hello! I'm Arios. Ask me about crypto prices or buy/sell actions!</div>
+                    </div>
+                </div>
+                
+                <!-- Chat Input -->
+                <form id="chat-form" class="flex gap-2 flex-none">
+                    <input type="text" id="chat-input" placeholder="Ask about crypto..." class="input input-bordered flex-1 input-sm" required autocomplete="off" />
+                    <button type="submit" id="chat-submit" class="btn btn-primary btn-sm">Send</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Floating Bubble Button -->
+        <button id="chat-bubble-btn" class="btn btn-primary btn-circle shadow-lg group pointer-events-auto p-0 overflow-hidden h-20 w-20">
+            <img src="/static/img/Arios_avatar.png" class="h-full w-full object-cover group-hover:scale-110 transition-transform" alt="Chat with Arios" />
+        </button>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const token = localStorage.getItem('arios_token');
+            if (!token) {
+                window.location.href = '/login';
+                return; // Stop execution
+            }
+
+            const chatWindow = document.getElementById('chat-window');
+            const chatBubbleBtn = document.getElementById('chat-bubble-btn');
+            const closeChatBtn = document.getElementById('close-chat-btn');
+
+            chatBubbleBtn.addEventListener('click', () => {
+                chatWindow.classList.toggle('hidden');
+            });
+
+            closeChatBtn.addEventListener('click', () => {
+                chatWindow.classList.add('hidden');
+            });
+
+            const chatForm = document.getElementById('chat-form');
+            const chatInput = document.getElementById('chat-input');
+            const chatMessages = document.getElementById('chat-messages');
+            const submitBtn = document.getElementById('chat-submit');
+
+            function addMessage(text, isUser) {
+                const div = document.createElement('div');
+                div.className = isUser ? 'chat chat-end' : 'chat chat-start';
+                
+                const avatar = document.createElement('div');
+                avatar.className = 'chat-image avatar';
+                avatar.innerHTML = isUser 
+                    ? `<div class="w-8 rounded-full bg-transparent"><img src="/static/img/User_avatar.png" alt="User Avatar" /></div>`
+                    : `<div class="w-8 rounded-full bg-transparent"><img src="/static/img/Arios_avatar.png" alt="Arios Avatar" /></div>`;
+                
+                const bubble = document.createElement('div');
+                bubble.className = `chat-bubble text-sm ${isUser ? 'chat-bubble-secondary' : 'chat-bubble-primary'}`;
+                // We use innerHTML to allow Markdown formatting in bot responses (simple formatting for bold/italic if needed)
+                // If it's a user message, we stick to plain text to avoid XSS
+                if (isUser) {
+                    bubble.textContent = text;
+                } else {
+                    bubble.innerHTML = text.replace(/\n/g, '<br/>');
+                }
+                
+                div.appendChild(avatar);
+                div.appendChild(bubble);
+                chatMessages.appendChild(div);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+
+            chatForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const message = chatInput.value.trim();
+                if (!message) return;
+                
+                addMessage(message, true);
+                chatInput.value = '';
+                submitBtn.disabled = true;
+                
+                const loadingDiv = document.createElement('div');
+                loadingDiv.className = 'chat chat-start';
+                loadingDiv.innerHTML = `<div class="chat-image avatar"><div class="w-8 rounded-full bg-transparent"><img src="/static/img/Arios_avatar.png" alt="Arios Avatar" /></div></div><div class="chat-bubble chat-bubble-primary"><span class="loading loading-dots loading-sm"></span></div>`;
+                chatMessages.appendChild(loadingDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+
+                try {
+                    const currentToken = localStorage.getItem('arios_token');
+                    const res = await fetch('/api/chat', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + currentToken
+                        },
+                        body: JSON.stringify({ message })
+                    });
+                    
+                    chatMessages.removeChild(loadingDiv);
+                    
+                    if (res.ok) {
+                        const data = await res.json();
+                        addMessage(data.reply, false);
+                    } else {
+                        addMessage("Sorry, I couldn't connect to the server. (" + res.status + ")", false);
+                        // Clear token if unauthorized, might be expired
+                        if(res.status === 401) {
+                            localStorage.removeItem('arios_token');
+                            window.location.href = '/login';
+                        }
+                    }
+                } catch (error) {
+                    chatMessages.removeChild(loadingDiv);
+                    addMessage("An error occurred connecting to the assistant.", false);
+                } finally {
+                    submitBtn.disabled = false;
+                    chatInput.focus();
+                }
+            });
+        });
+    </script>
+
+    <!-- Crypto Table Container -->
+    <div class="mt-8 card bg-base-100 shadow-xl">
+        <div class="card-body" hx-get="/components/crypto_table" hx-trigger="load, every 60s">
+            <h2 class="card-title mb-4">Top Cryptocurrencies</h2>
+            <div class="flex justify-center p-4"><span class="loading loading-spinner"></span></div>
+        </div>
+    </div>
+
+    <!-- Trade Confirmation Modal -->
+    <dialog id="trade_modal" class="modal">
+      <div class="modal-box">
+        <h3 class="font-bold text-lg" id="trade_modal_title">Confirm Trade</h3>
+        <p class="py-4" id="trade_modal_body">Trade details here...</p>
+        <div class="modal-action">
+          <form method="dialog">
+            <button class="btn">Cancel</button>
+          </form>
+          <button class="btn btn-primary" id="trade_modal_confirm" onclick="executeTrade()">Confirm</button>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- Trade Result Modal -->
+    <dialog id="result_modal" class="modal">
+      <div class="modal-box">
+        <h3 class="font-bold text-lg" id="result_modal_title">Trade Result</h3>
+        <p class="py-4" id="result_modal_body">Result details here...</p>
+        <div class="modal-action">
+          <form method="dialog">
+            <button class="btn btn-primary">Close</button>
+          </form>
+        </div>
+      </div>
+    </dialog>
+</div>
+
+<script>
+let currentTrade = null;
+
+function switchTradeTab(tab) {
+    if (tab === 'buy') {
+        document.getElementById('tab-buy').classList.add('tab-active');
+        document.getElementById('tab-sell').classList.remove('tab-active');
+        document.getElementById('buy-form').classList.remove('hidden');
+        document.getElementById('sell-form').classList.add('hidden');
+        loadBuyOptions();
+    } else {
+        document.getElementById('tab-sell').classList.add('tab-active');
+        document.getElementById('tab-buy').classList.remove('tab-active');
+        document.getElementById('sell-form').classList.remove('hidden');
+        document.getElementById('buy-form').classList.add('hidden');
+        loadSellOptions();
+    }
+}
+
+async function loadBuyOptions() {
+    try {
+        const res = await fetch('/api/cryptos');
+        const cryptos = await res.json();
+        const select = document.getElementById('buy-crypto-select');
+        select.innerHTML = '<option disabled selected value="">Select Crypto</option>';
+        cryptos.forEach(c => {
+            select.innerHTML += `<option value="${c.symbol}" data-price="${c.current_price}">${c.name} (${c.symbol}) - $${c.current_price.toLocaleString()}</option>`;
+        });
+    } catch (e) {
+        console.error('Failed to load buy options:', e);
+    }
+}
+
+async function loadSellOptions() {
+    try {
+        const token = localStorage.getItem('arios_token');
+        const res = await fetch('/api/portfolio', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const select = document.getElementById('sell-crypto-select');
+        select.innerHTML = '<option disabled selected value="">Select Crypto to Sell</option>';
+        if (data.holdings && data.holdings.length > 0) {
+            data.holdings.forEach(h => {
+                select.innerHTML += `<option value="${h.crypto_symbol}" data-max="${h.quantity}">${h.crypto_symbol} (Avail: ${h.quantity})</option>`;
+            });
+        } else {
+            select.innerHTML = '<option disabled selected value="">No holdings available</option>';
+        }
+    } catch (e) {
+        console.error('Failed to load sell options:', e);
+    }
+}
+
+function prepareTrade(action) {
+    const select = document.getElementById(`${action}-crypto-select`);
+    const amountInput = document.getElementById(`${action}-amount`);
+    const amount = parseFloat(amountInput.value);
+    
+    if (!select.value) {
+        alert("Please select a cryptocurrency.");
+        return;
+    }
+    if (isNaN(amount) || amount <= 0) {
+        alert("Please enter a valid amount greater than 0.");
+        return;
+    }
+
+    const symbol = select.value;
+    const option = select.options[select.selectedIndex];
+    
+    let infoText = "";
+    if (action === 'buy') {
+        const price = parseFloat(option.getAttribute('data-price'));
+        const estimatedCost = price * amount;
+        infoText = `Are you sure you want to <b>BUY ${amount} ${symbol}</b>?<br/>Estimated Cost: $${estimatedCost.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+    } else {
+        const max = parseFloat(option.getAttribute('data-max'));
+        if (amount > max) {
+            alert(`You only have ${max} ${symbol} available to sell.`);
+            return;
+        }
+        infoText = `Are you sure you want to <b>SELL ${amount} ${symbol}</b>?`;
+    }
+
+    currentTrade = { action, symbol, amount };
+    document.getElementById('trade_modal_title').innerText = `Confirm ${action.toUpperCase()}`;
+    document.getElementById('trade_modal_body').innerHTML = infoText;
+    document.getElementById('trade_modal').showModal();
+}
+
+async function executeTrade() {
+    if (!currentTrade) return;
+    const { action, symbol, amount } = currentTrade;
+    const token = localStorage.getItem('arios_token');
+    
+    document.getElementById('trade_modal').close();
+    
+    try {
+        const res = await fetch(`/api/trade/${action}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            },
+            body: JSON.stringify({ crypto_symbol: symbol, quantity: amount })
+        });
+        
+        const resultModalTitle = document.getElementById('result_modal_title');
+        const resultModalBody = document.getElementById('result_modal_body');
+        
+        if (res.ok) {
+            resultModalTitle.innerText = 'Trade Successful';
+            resultModalBody.innerHTML = `Successfully completed ${action.toUpperCase()} for ${amount} ${symbol}!`;
+            resultModalTitle.className = 'font-bold text-lg text-success';
+            
+            document.getElementById(`${action}-amount`).value = '';
+            
+            // Reload options and trigger HTMX elements update to reflect new balances
+            if (action === 'sell') {
+                loadSellOptions();
+            } else {
+                loadBuyOptions();
+            }
+            
+            // Re-trigger hx-get on components to refresh user data
+            const statsDiv = document.getElementById('stats');
+            if (statsDiv && typeof htmx !== 'undefined') {
+                htmx.trigger(statsDiv, 'load');
+            }
+            const watchlistDiv = document.getElementById('watchlist');
+            if (watchlistDiv && typeof htmx !== 'undefined') {
+                htmx.trigger(watchlistDiv, 'load');
+            }
+        } else {
+            const data = await res.json();
+            resultModalTitle.innerText = 'Trade Failed';
+            resultModalBody.innerHTML = `Error: ${data.detail || 'Unknown error'}`;
+            resultModalTitle.className = 'font-bold text-lg text-error';
+        }
+    } catch (e) {
+        const resultModalTitle = document.getElementById('result_modal_title');
+        const resultModalBody = document.getElementById('result_modal_body');
+        resultModalTitle.innerText = 'Trade Error';
+        resultModalBody.innerHTML = `An error occurred: ${e.message}`;
+        resultModalTitle.className = 'font-bold text-lg text-error';
+    }
+    
+    document.getElementById('result_modal').showModal();
+    currentTrade = null;
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+    loadBuyOptions();
+    var chart; // Hold chart instance
+    var currentSymbol = 'BTC';
+    
+    function fetchAndRenderChart(symbol) {
+        document.getElementById('chart-title').innerText = `${symbol}/USD Price Chart`;
+        
+        fetch(`/api/chart/${symbol}`)
+            .then(response => response.json())
+            .then(data => {
+                var options = {
+                    series: [{
+                        name: 'candle',
+                        data: data
+                    }],
+                    chart: {
+                        type: 'candlestick',
+                        height: 350,
+                        background: 'transparent',
+                        toolbar: {
+                            show: false
+                        }
+                    },
+                    theme: {
+                        mode: 'dark'
+                    },
+                    plotOptions: {
+                        candlestick: {
+                            colors: {
+                                upward: '#00B8D9',
+                                downward: '#FF5630'
+                            }
+                        }
+                    },
+                    xaxis: {
+                        type: 'datetime',
+                        labels: {
+                            style: {
+                                colors: '#a6adbb'
+                            }
+                        }
+                    },
+                    yaxis: {
+                        tooltip: {
+                            enabled: true
+                        },
+                        labels: {
+                            style: {
+                                colors: '#a6adbb'
+                            },
+                            formatter: function (value) {
+                                return "$" + value.toLocaleString();
+                            }
+                        }
+                    },
+                    grid: {
+                        borderColor: '#2a323c'
+                    }
+                };
+
+                if (chart) {
+                    chart.destroy();
+                }
+                
+                chart = new ApexCharts(document.querySelector("#crypto-chart"), options);
+                chart.render();
+            })
+            .catch(error => {
+                console.error('Error fetching chart data:', error);
+                document.querySelector("#crypto-chart").innerHTML = '<p class="text-center text-error mt-10">Failed to load chart data.</p>';
+            });
+    }
+
+    // Initial load
+    fetchAndRenderChart(currentSymbol);
+
+    // Listen for dropdown changes using event delegation (so it survives HTMX swaps)
+    document.body.addEventListener('change', function(e) {
+        if (e.target && e.target.id === 'chart-symbol-select') {
+            currentSymbol = e.target.value;
+            fetchAndRenderChart(currentSymbol);
+            
+            // Trigger stats update
+            const statsDiv = document.getElementById('stats');
+            if (statsDiv) {
+                statsDiv.setAttribute('hx-get', `/components/stats?symbol=${currentSymbol}`);
+                if (typeof htmx !== 'undefined') {
+                    htmx.ajax('GET', `/components/stats?symbol=${currentSymbol}`, {target: '#stats', swap: 'innerHTML'});
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

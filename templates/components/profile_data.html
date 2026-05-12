@@ -1,0 +1,204 @@
+<!-- User Info Card -->
+<div class="card bg-base-100 shadow-xl mb-8">
+    <div class="card-body">
+        <h2 class="card-title text-2xl mb-4">Account Information</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="md:col-span-1">
+                <p class="text-gray-400 text-sm">Email</p>
+                <p class="font-bold text-lg">{{ user.email }}</p>
+            </div>
+            <div class="md:col-span-2">
+                <p class="text-gray-400 text-sm">Role</p>
+                <div class="badge badge-primary">{{ user.role.value }}</div>
+            </div>
+            <div>
+                <p class="text-gray-400 text-sm">Fiat Balance</p>
+                <p class="font-bold text-lg text-success">${{ "{:,.2f}".format(portfolio.summary.fiat_balance) }}</p>
+            </div>
+            <div>
+                <p class="text-gray-400 text-sm">Total Net Worth</p>
+                <p class="font-bold text-lg">${{ "{:,.2f}".format(portfolio.summary.total_net_worth) }}</p>
+            </div>
+            <div class="flex items-end">
+                <button class="btn btn-success text-white w-full md:w-auto" onclick="document.getElementById('loan_modal').showModal()">Take a loan</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Portfolio Table -->
+<div class="card bg-base-100 shadow-xl mb-8">
+    <div class="card-body">
+        <h2 class="card-title text-2xl mb-4">Current Portfolio</h2>
+        <div class="overflow-x-auto">
+            <table class="table table-zebra w-full">
+                <thead>
+                    <tr>
+                        <th>Asset</th>
+                        <th>Quantity</th>
+                        <th>Avg Buy Price</th>
+                        <th>Current Value</th>
+                        <th>Profit/Loss</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in portfolio.holdings %}
+                    <tr>
+                        <td class="font-bold">
+                            <div class="badge badge-ghost">{{ item.crypto_symbol }}</div>
+                        </td>
+                        <td>{{ "{:,.2f}".format(item.quantity) }}</td>
+                        <td>${{ "{:,.2f}".format(item.average_buy_price) }}</td>
+                        <td>${{ "{:,.2f}".format(item.current_value) }}</td>
+                        <td class="{% if item.profit_loss and item.profit_loss < 0 %}text-error{% elif item.profit_loss and item.profit_loss > 0 %}text-success{% endif %}">
+                            ${{ "{:,.2f}".format(item.profit_loss) }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% if not portfolio.holdings %}
+                    <tr>
+                        <td colspan="5" class="text-center py-4">Your portfolio is currently empty.</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Transactions Table -->
+<div class="card bg-base-100 shadow-xl">
+    <div class="card-body">
+        <h2 class="card-title text-2xl mb-4">Transaction History</h2>
+        <div class="overflow-x-auto">
+            <table class="table table-zebra w-full">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Action</th>
+                        <th>Asset</th>
+                        <th>Quantity</th>
+                        <th>Exec. Price</th>
+                        <th>Total Cost</th>
+                        <th>Profit/Loss</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for txn in transactions %}
+                    <tr>
+                        <td>{{ txn.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td>
+                            <div class="badge {% if txn.action == 'BUY' %}badge-info{% else %}badge-warning{% endif %}">{{ txn.action }}</div>
+                        </td>
+                        <td class="font-bold">{{ txn.crypto_symbol }}</td>
+                        <td>{{ "{:,.6f}".format(txn.quantity) }}</td>
+                        <td>${{ "{:,.2f}".format(txn.execution_price) }}</td>
+                        <td>${{ "{:,.2f}".format(txn.total_cost) }}</td>
+                        <td>
+                            {% if txn.profit_loss is not none %}
+                            <span class="{% if txn.profit_loss < 0 %}text-error{% elif txn.profit_loss > 0 %}text-success{% endif %}">
+                                ${{ "{:,.2f}".format(txn.profit_loss) }}
+                            </span>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% if not transactions %}
+                    <tr>
+                        <td colspan="7" class="text-center py-4">No transactions found.</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Loan Request Modal -->
+<dialog id="loan_modal" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg">Take a Loan</h3>
+    <p class="py-4">Enter the amount you wish to borrow:</p>
+    <input type="number" id="loan_amount" class="input input-bordered w-full mb-4" placeholder="Amount" step="0.01" min="0">
+    <div class="modal-action">
+      <button class="btn btn-success text-white" onclick="submitLoan()">Take a loan</button>
+      <form method="dialog">
+        <button class="btn">Cancel</button>
+      </form>
+    </div>
+  </div>
+</dialog>
+
+<!-- Loan Result Modal -->
+<dialog id="loan_result_modal" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg" id="loan_result_title">Loan Status</h3>
+    <p class="py-4" id="loan_result_message"></p>
+    <div class="modal-action">
+      <form method="dialog">
+        <button class="btn">Close</button>
+      </form>
+    </div>
+  </div>
+</dialog>
+
+<script>
+async function submitLoan() {
+    const amount = document.getElementById('loan_amount').value;
+    if (!amount || amount <= 0) {
+        alert("Please enter a valid amount.");
+        return;
+    }
+    const token = localStorage.getItem('arios_token');
+    if (!token) {
+        window.location.href = '/login';
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/loan', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ amount: parseFloat(amount) })
+        });
+        
+        const data = await response.json();
+        
+        document.getElementById('loan_modal').close();
+        document.getElementById('loan_amount').value = '';
+        
+        const resultTitle = document.getElementById('loan_result_title');
+        const resultMessage = document.getElementById('loan_result_message');
+        
+        if (response.ok && data.approved) {
+            resultTitle.textContent = "Success";
+            resultTitle.className = "font-bold text-lg text-success";
+            resultMessage.textContent = data.message;
+            
+            if (data.new_fiat_balance !== undefined) {
+                const fiatEl = document.getElementById('fiat_balance_display');
+                if (fiatEl) fiatEl.textContent = '$' + data.new_fiat_balance.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            }
+            if (data.new_net_worth !== undefined) {
+                const netWorthEl = document.getElementById('net_worth_display');
+                if (netWorthEl) netWorthEl.textContent = '$' + data.new_net_worth.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            }
+        } else {
+            resultTitle.textContent = "Failed";
+            resultTitle.className = "font-bold text-lg text-error";
+            resultMessage.textContent = data.detail || data.message || "Failed to process loan request.";
+        }
+        
+        document.getElementById('loan_result_modal').showModal();
+        
+    } catch (error) {
+        console.error('Error requesting loan:', error);
+        alert('An error occurred while processing your request.');
+    }
+}
+</script>
