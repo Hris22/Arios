@@ -2,9 +2,9 @@ from google import genai
 from google.genai import types
 from sqlalchemy.orm import Session
 
-from config import settings
-import services
-import models
+from src.config import settings
+from src import services
+from src import models
 
 # Configure the Gemini API globally
 client = genai.Client(api_key=settings.GEMINI_API_KEY) if settings.GEMINI_API_KEY else None
@@ -60,7 +60,17 @@ def get_chat_response(db: Session, current_user: models.User, user_message: str)
             
     def get_user_portfolio() -> dict:
         """Fetches the current user's cryptocurrency portfolio, fiat balance, and total net worth."""
-        return services.get_user_portfolio(db, current_user)
+        portfolio = services.get_user_portfolio(db, current_user)
+        from decimal import Decimal
+        def convert_decimals(obj):
+            if isinstance(obj, Decimal):
+                return float(obj)
+            elif isinstance(obj, dict):
+                return {k: convert_decimals(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [convert_decimals(item) for item in obj]
+            return obj
+        return convert_decimals(portfolio)
 
     # 2. Initialize the model with the tools and persona
     chat = client.chats.create(

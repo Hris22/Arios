@@ -1,7 +1,7 @@
 import urllib.request
 import json
-from database import SessionLocal
-from models import Cryptocurrency
+from src.database import SessionLocal
+from src.models import Cryptocurrency
 
 def scrape_data():
     # CoinGecko API endpoint for top 15 coins by market cap with 1h, 24h, and 7d changes

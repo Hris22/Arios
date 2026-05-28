@@ -5,10 +5,10 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from unittest.mock import patch
 
-from app import app, get_db
-from database import Base
-import models
-from services import get_password_hash
+from src.main import app, get_db
+from src.database import Base
+from src import models
+from src.services import get_password_hash
 
 # Setup an in-memory SQLite database for testing
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
@@ -23,7 +23,7 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 # Mock the BackgroundScheduler so the scraper doesn't run during tests
 @pytest.fixture(autouse=True)
 def mock_scheduler():
-    with patch("app.BackgroundScheduler"):
+    with patch("src.main.BackgroundScheduler"):
         yield
 
 @pytest.fixture()
@@ -40,7 +40,7 @@ def db_session():
 def client(db_session, monkeypatch):
     # Set a dummy secret key for JWT token creation during tests
     # This prevents tests from failing if .env is not set.
-    monkeypatch.setattr("config.settings.SECRET_KEY", "test_secret_key_for_jwt")
+    monkeypatch.setattr("src.config.settings.SECRET_KEY", "test_secret_key_for_jwt")
 
     # Override the get_db dependency to use the test database
     def override_get_db():
@@ -100,7 +100,7 @@ def test_get_cryptos(client, db_session):
     data = response.json()
     assert len(data) == 1
     assert data[0]["symbol"] == "BTC"
-    assert data[0]["current_price"] == 50000.0
+    assert float(data[0]["current_price"]) == 50000.0
 
 def test_admin_get_users(client, db_session):
     # Create an admin user directly in the database
@@ -168,10 +168,10 @@ def test_buy_crypto_success(client, db_session, regular_user_token):
     data = response.json()
     assert data["crypto_symbol"] == "ETH"
     assert data["action"] == "BUY"
-    assert data["quantity"] == 1.0
-    assert data["execution_price"] == 2000.0
-    assert data["fee"] == 2.0 # 0.1% of $2000
-    assert data["total_cost"] == 2002.0
+    assert float(data["quantity"]) == 1.0
+    assert float(data["execution_price"]) == 2000.0
+    assert float(data["fee"]) == 2.0 # 0.1% of $2000
+    assert float(data["total_cost"]) == 2002.0
 
 def test_sell_crypto_minimum_trade(client, db_session, regular_user_token):
     crypto = models.Cryptocurrency(symbol="ADA", name="Cardano", current_price=1.0)
@@ -200,7 +200,7 @@ def test_request_loan_success(client, db_session, regular_user_token):
     )
     assert response.status_code == 200
     assert response.json()["approved"] is True
-    assert response.json()["new_fiat_balance"] == 15000.0 # Started with 10000
+    assert float(response.json()["new_fiat_balance"]) == 15000.0 # Started with 10000
 
 def test_request_loan_denied_high_net_worth(client, db_session, regular_user_token):
     user = db_session.query(models.User).filter(models.User.email == "trader@example.com").first()
@@ -214,7 +214,7 @@ def test_request_loan_denied_high_net_worth(client, db_session, regular_user_tok
     )
     assert response.status_code == 200
     assert response.json()["approved"] is False
-    assert response.json()["new_fiat_balance"] == 55000.0
+    assert float(response.json()["new_fiat_balance"]) == 55000.0
 
 def test_chatbot_eth_info(client, db_session, regular_user_token):
     crypto = models.Cryptocurrency(symbol="ETH", name="Ethereum", current_price=3000.0)
@@ -273,7 +273,7 @@ def test_chatbot_invalid_crypto(client, db_session, regular_user_token):
     # The chatbot should gracefully handle the missing coin and mention it in the reply
     assert "HRISCOIN" in data["reply"].upper()
 
-@patch("chatbot.client")
+@patch("src.chatbot.client")
 def test_chatbot_mocked_api(mock_chatbot_client, client, db_session, regular_user_token):
     # Setup the mock so that calling client.chats.create().send_message() returns our fake response
     mock_chat = mock_chatbot_client.chats.create.return_value

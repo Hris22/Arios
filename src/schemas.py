@@ -1,12 +1,13 @@
 from pydantic import BaseModel, ConfigDict, EmailStr
 from datetime import datetime
 from typing import Optional, List
+from decimal import Decimal
 
 
 class CryptoBase(BaseModel):
     symbol: str
     name: str
-    current_price: float
+    current_price: Decimal
     change_1h: Optional[str] = None
     change_24h: Optional[str] = None
     change_7d: Optional[str] = None
@@ -30,7 +31,7 @@ class UserCreate(BaseModel):
 class UserResponse(BaseModel):
     id: int
     email: str
-    fiat_balance: float
+    fiat_balance: Decimal
     created_at: datetime
     role: str
 
@@ -49,18 +50,18 @@ class TokenData(BaseModel):
 
 class TradeRequest(BaseModel):
     crypto_symbol: str
-    quantity: float
+    quantity: Decimal
 
 
 class TradeResponse(BaseModel):
     id: int
     action: str
     crypto_symbol: str
-    quantity: float
-    execution_price: float
-    total_cost: float
-    fee: float
-    profit_loss: Optional[float] = None
+    quantity: Decimal
+    execution_price: Decimal
+    total_cost: Decimal
+    fee: Decimal
+    profit_loss: Optional[Decimal] = None
     timestamp: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -69,19 +70,19 @@ class TradeResponse(BaseModel):
 class PortfolioResponse(BaseModel):
     id: int
     crypto_symbol: str
-    quantity: float
-    average_buy_price: float
-    current_value: float
-    profit_loss: float
+    quantity: Decimal
+    average_buy_price: Decimal
+    current_value: Decimal
+    profit_loss: Decimal
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class PortfolioSummary(BaseModel):
-    fiat_balance: float
-    total_crypto_value: float
-    total_net_worth: float
-    total_profit_loss: float
+    fiat_balance: Decimal
+    total_crypto_value: Decimal
+    total_net_worth: Decimal
+    total_profit_loss: Decimal
 
 
 class PortfolioFullResponse(BaseModel):
@@ -90,14 +91,14 @@ class PortfolioFullResponse(BaseModel):
 
 
 class LoanRequest(BaseModel):
-    amount: float
+    amount: Decimal
 
 
 class LoanResponse(BaseModel):
     approved: bool
     message: str
-    new_fiat_balance: float
-    new_net_worth: float
+    new_fiat_balance: Decimal
+    new_net_worth: Decimal
 
 
 class ChatRequest(BaseModel):

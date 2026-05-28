@@ -9,13 +9,13 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from sqlalchemy.orm import Session
 import jwt
 
-import scraper
-from database import SessionLocal, engine
-import models
-import schemas
-import services
-from config import settings
-import chatbot
+from src import scraper
+from src.database import SessionLocal, engine
+from src import models
+from src import schemas
+from src import services
+from src.config import settings
+from src import chatbot
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
 
@@ -152,8 +152,8 @@ def get_cryptos(db: Session = Depends(get_db)):
     return cryptos
 
 @app.get("/api/chart/{symbol}")
-def get_chart_data(symbol: str, db: Session = Depends(get_db)):
-    data = services.get_real_candlestick_data(symbol, days=30)
+async def get_chart_data(symbol: str, db: Session = Depends(get_db)):
+    data = await services.get_real_candlestick_data(symbol, days=30)
     if not data:
         raise HTTPException(status_code=404, detail="Cryptocurrency data not found")
     return data

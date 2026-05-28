@@ -4,10 +4,11 @@ from typing import Optional, List
 import jwt
 import bcrypt
 from fastapi import HTTPException
+from decimal import Decimal
 
-import models
-import schemas
-from config import settings
+from src import models
+from src import schemas
+from src.config import settings
 
 def get_password_hash(password: str) -> str:
     # bcrypt requires bytes, so we encode the password
@@ -65,26 +66,26 @@ def get_crypto_by_symbol(db: Session, symbol: str) -> Optional[models.Cryptocurr
     return db.query(models.Cryptocurrency).filter(models.Cryptocurrency.symbol == symbol.upper()).first()
 
 
-def buy_crypto(db: Session, user: models.User, crypto_symbol: str, quantity: float):
+def buy_crypto(db: Session, user: models.User, crypto_symbol: str, quantity: Decimal):
     crypto = get_crypto_by_symbol(db, crypto_symbol)
     if not crypto:
         raise HTTPException(status_code=404, detail="Cryptocurrency not found")
     
-    if quantity <= 0:
+    if quantity <= Decimal('0'):
         raise HTTPException(status_code=400, detail="Quantity must be greater than 0")
 
-    price = float(crypto.current_price)
+    price = Decimal(str(crypto.current_price))
     
     value = price * quantity
-    if value < 10:
+    if value < Decimal('10'):
         raise HTTPException(status_code=400, detail="Minimum trade size is $10")
-    fee = value * 0.001  # 0.1% fee
+    fee = value * Decimal('0.001')  # 0.1% fee
     total_cost = value + fee
     
-    if float(user.fiat_balance) < total_cost:
+    if Decimal(str(user.fiat_balance)) < total_cost:
         raise HTTPException(status_code=400, detail="Insufficient fiat balance")
         
-    user.fiat_balance = float(user.fiat_balance) - total_cost
+    user.fiat_balance = Decimal(str(user.fiat_balance)) - total_cost
     
     portfolio = db.query(models.Portfolio).filter(
         models.Portfolio.user_id == user.id,
@@ -92,8 +93,8 @@ def buy_crypto(db: Session, user: models.User, crypto_symbol: str, quantity: flo
     ).first()
     
     if portfolio:
-        old_quantity = float(portfolio.quantity)
-        old_avg_price = float(portfolio.average_buy_price)
+        old_quantity = Decimal(str(portfolio.quantity))
+        old_avg_price = Decimal(str(portfolio.average_buy_price))
         new_quantity = old_quantity + quantity
         portfolio.average_buy_price = ((old_quantity * old_avg_price) + value) / new_quantity
         portfolio.quantity = new_quantity
@@ -124,21 +125,21 @@ def buy_crypto(db: Session, user: models.User, crypto_symbol: str, quantity: flo
         "id": transaction.id,
         "action": transaction.action.value,
         "crypto_symbol": crypto.symbol,
-        "quantity": float(transaction.quantity),
-        "execution_price": float(transaction.execution_price),
-        "total_cost": float(transaction.total_cost),
-        "fee": float(transaction.fee),
+        "quantity": transaction.quantity,
+        "execution_price": transaction.execution_price,
+        "total_cost": transaction.total_cost,
+        "fee": transaction.fee,
         "profit_loss": None,
         "timestamp": transaction.timestamp
     }
 
 
-def sell_crypto(db: Session, user: models.User, crypto_symbol: str, quantity: float):
+def sell_crypto(db: Session, user: models.User, crypto_symbol: str, quantity: Decimal):
     crypto = get_crypto_by_symbol(db, crypto_symbol)
     if not crypto:
         raise HTTPException(status_code=404, detail="Cryptocurrency not found")
         
-    if quantity <= 0:
+    if quantity <= Decimal('0'):
         raise HTTPException(status_code=400, detail="Quantity must be greater than 0")
 
     portfolio = db.query(models.Portfolio).filter(
@@ -146,24 +147,24 @@ def sell_crypto(db: Session, user: models.User, crypto_symbol: str, quantity: fl
         models.Portfolio.crypto_id == crypto.id
     ).first()
     
-    if not portfolio or float(portfolio.quantity) < quantity:
+    if not portfolio or Decimal(str(portfolio.quantity)) < quantity:
         raise HTTPException(status_code=400, detail="Insufficient crypto balance")
         
-    price = float(crypto.current_price)
+    price = Decimal(str(crypto.current_price))
     
     value = price * quantity
-    if value < 10:
+    if value < Decimal('10'):
         raise HTTPException(status_code=400, detail="Minimum trade size is $10")
-    fee = value * 0.001  # 0.1% fee
+    fee = value * Decimal('0.001')  # 0.1% fee
     total_payout = value - fee
     
-    buy_cost_for_sold_tokens = float(portfolio.average_buy_price) * quantity
+    buy_cost_for_sold_tokens = Decimal(str(portfolio.average_buy_price)) * quantity
     profit_loss = total_payout - buy_cost_for_sold_tokens
     
-    user.fiat_balance = float(user.fiat_balance) + total_payout
+    user.fiat_balance = Decimal(str(user.fiat_balance)) + total_payout
     
-    portfolio.quantity = float(portfolio.quantity) - quantity
-    if portfolio.quantity == 0:
+    portfolio.quantity = Decimal(str(portfolio.quantity)) - quantity
+    if portfolio.quantity == Decimal('0'):
         db.delete(portfolio)
         
     transaction = models.Transaction(
@@ -185,11 +186,11 @@ def sell_crypto(db: Session, user: models.User, crypto_symbol: str, quantity: fl
         "id": transaction.id,
         "action": transaction.action.value,
         "crypto_symbol": crypto.symbol,
-        "quantity": float(transaction.quantity),
-        "execution_price": float(transaction.execution_price),
-        "total_cost": float(transaction.total_cost),
-        "fee": float(transaction.fee),
-        "profit_loss": float(transaction.profit_loss) if transaction.profit_loss else None,
+        "quantity": transaction.quantity,
+        "execution_price": transaction.execution_price,
+        "total_cost": transaction.total_cost,
+        "fee": transaction.fee,
+        "profit_loss": transaction.profit_loss if transaction.profit_loss else None,
         "timestamp": transaction.timestamp
     }
 
@@ -198,14 +199,14 @@ def get_user_portfolio(db: Session, user: models.User):
     portfolios = db.query(models.Portfolio).filter(models.Portfolio.user_id == user.id).all()
     
     portfolio_responses = []
-    total_crypto_value = 0.0
-    total_profit_loss = 0.0
+    total_crypto_value = Decimal('0.0')
+    total_profit_loss = Decimal('0.0')
     
     for p in portfolios:
         crypto = db.query(models.Cryptocurrency).filter(models.Cryptocurrency.id == p.crypto_id).first()
-        current_price = float(crypto.current_price) if crypto else 0.0
-        quantity = float(p.quantity)
-        avg_buy_price = float(p.average_buy_price)
+        current_price = Decimal(str(crypto.current_price)) if crypto else Decimal('0.0')
+        quantity = Decimal(str(p.quantity))
+        avg_buy_price = Decimal(str(p.average_buy_price))
         
         current_value = current_price * quantity
         total_buy_cost = avg_buy_price * quantity
@@ -223,7 +224,7 @@ def get_user_portfolio(db: Session, user: models.User):
             "profit_loss": profit_loss
         })
         
-    fiat_balance = float(user.fiat_balance)
+    fiat_balance = Decimal(str(user.fiat_balance))
     total_net_worth = fiat_balance + total_crypto_value
     
     return {
@@ -246,53 +247,53 @@ def get_user_transactions(db: Session, user: models.User):
             "id": t.id,
             "action": t.action.value,
             "crypto_symbol": crypto.symbol if crypto else "UNKNOWN",
-            "quantity": float(t.quantity),
-            "execution_price": float(t.execution_price),
-            "total_cost": float(t.total_cost),
-            "fee": float(t.fee),
-            "profit_loss": float(t.profit_loss) if t.profit_loss is not None else None,
+            "quantity": t.quantity,
+            "execution_price": t.execution_price,
+            "total_cost": t.total_cost,
+            "fee": t.fee,
+            "profit_loss": t.profit_loss if t.profit_loss is not None else None,
             "timestamp": t.timestamp
         })
     return transaction_responses
 
-def request_loan(db: Session, user: models.User, amount: float):
-    if amount <= 0:
+def request_loan(db: Session, user: models.User, amount: Decimal):
+    if amount <= Decimal('0'):
         raise HTTPException(status_code=400, detail="Loan amount must be greater than 0")
         
     portfolio_data = get_user_portfolio(db, user)
     total_net_worth = portfolio_data["summary"]["total_net_worth"]
     
-    if total_net_worth+amount >= 50000:
+    if total_net_worth+amount >= Decimal('50000'):
         return {
             "approved": False,
             "message": "Loan denied: Total net worth is 50,000 or more.",
-            "new_fiat_balance": float(user.fiat_balance),
+            "new_fiat_balance": user.fiat_balance,
             "new_net_worth": total_net_worth
         }
         
-    user.fiat_balance = float(user.fiat_balance) + amount
+    user.fiat_balance = Decimal(str(user.fiat_balance)) + amount
     db.commit()
     db.refresh(user)
     
     return {
         "approved": True,
         "message": f"Loan approved for {amount}. Added to your fiat balance.",
-        "new_fiat_balance": float(user.fiat_balance),
+        "new_fiat_balance": user.fiat_balance,
         "new_net_worth": total_net_worth + amount
     }
 
-import urllib.request
-import json
+import httpx
 
-def get_real_candlestick_data(symbol: str, days: int = 30):
+async def get_real_candlestick_data(symbol: str, days: int = 30):
     # Binance uses USDT pairs (e.g., BTCUSDT, ETHUSDT)
     binance_symbol = f"{symbol.upper()}USDT"
     url = f"https://api.binance.com/api/v3/klines?symbol={binance_symbol}&interval=1d&limit={days}"
     
     try:
-        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-        with urllib.request.urlopen(req) as response:
-            data = json.loads(response.read().decode())
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, headers={'User-Agent': 'Mozilla/5.0'})
+            response.raise_for_status()
+            data = response.json()
             
         chart_data = []
         for kline in data:

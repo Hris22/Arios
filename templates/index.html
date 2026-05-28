@@ -91,7 +91,7 @@
     <!-- Floating Chatbot -->
     <div class="fixed bottom-6 right-12 z-50 flex flex-col items-end pointer-events-none">
         <!-- Chat Window -->
-        <div id="chat-window" class="card bg-base-100 shadow-2xl h-[450px] w-80 sm:w-96 flex flex-col mb-4 hidden transform transition-all duration-300 origin-bottom-right pointer-events-auto border border-base-300">
+        <div id="chat-window" class="card bg-base-100 shadow-2xl h-[650px] w-80 sm:w-[500px] flex flex-col mb-4 hidden transform transition-all duration-300 origin-bottom-right pointer-events-auto border border-base-300">
             <div class="card-body flex flex-col p-4 relative min-h-0 overflow-hidden">
                 <div class="flex justify-between items-center mb-2 flex-none">
                     <h2 class="card-title text-lg">Arios Assistant</h2>
@@ -191,7 +191,7 @@
                 
                 const loadingDiv = document.createElement('div');
                 loadingDiv.className = 'chat chat-start';
-                loadingDiv.innerHTML = `<div class="chat-image avatar"><div class="w-8 rounded-full bg-transparent"><img src="/static/img/Arios_avatar.png" alt="Arios Avatar" /></div></div><div class="chat-bubble chat-bubble-primary"><span class="loading loading-dots loading-sm"></span></div>`;
+                loadingDiv.innerHTML = `<div class="chat-image avatar"><div class="w-8 rounded-full bg-transparent overflow-hidden"><img src="/static/img/Arios_avatar.png" class="scale-[1.2]" alt="Arios Avatar" /></div></div><div class="chat-bubble chat-bubble-primary"><span class="loading loading-dots loading-sm"></span></div>`;
                 chatMessages.appendChild(loadingDiv);
                 chatMessages.scrollTop = chatMessages.scrollHeight;
 

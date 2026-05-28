@@ -3,7 +3,7 @@ from sqlalchemy import (Column, Integer, String, Numeric, DateTime, ForeignKey,
                         UniqueConstraint, Enum)
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from database import Base
+from src.database import Base
 
 
 class ActionType(str, enum.Enum):
