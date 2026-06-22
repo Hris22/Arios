@@ -19,7 +19,6 @@ class CryptoResponse(CryptoBase):
     id: int
     last_updated: Optional[datetime] = None
 
-    # This allows Pydantic to read data from SQLAlchemy models
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -30,7 +29,7 @@ class UserCreate(BaseModel):
 
 class UserResponse(BaseModel):
     id: int
-    email: str
+    email: EmailStr
     fiat_balance: Decimal
     created_at: datetime
     role: str
@@ -45,7 +44,7 @@ class Token(BaseModel):
 
 
 class TokenData(BaseModel):
-    email: Optional[str] = None
+    email: Optional[EmailStr] = None
 
 
 class TradeRequest(BaseModel):

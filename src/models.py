@@ -24,11 +24,8 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     role = Column(Enum(RoleType), nullable=False, default=RoleType.TRADER)
 
-    # A user can have many portfolio entries
     portfolios = relationship("Portfolio", back_populates="owner")
-    # A user can have many transactions
     transactions = relationship("Transaction", back_populates="user")
-    # A user can have a watchlist
     watchlists = relationship("Watchlist", back_populates="user")
 
 

@@ -19,26 +19,20 @@ from src import chatbot
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
 
-# Ensure database tables are created
 models.Base.metadata.create_all(bind=engine)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Code here runs on application startup
-    print("Starting background scraper...")
     scheduler = BackgroundScheduler()
     scheduler.add_job(scraper.scrape_data, 'interval', seconds=60)
     scheduler.start()
     
-    yield # This yields control back to FastAPI to run the application
+    yield 
     
-    # Code here runs on application shutdown
-    print("Shutting down background scraper...")
     scheduler.shutdown()
 
 app = FastAPI(lifespan=lifespan)
 
-# Mount the 'static' directory to serve static files like images, css, etc.
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
@@ -93,6 +87,10 @@ def profile_page(request: Request):
 def admin_page(request: Request):
     return templates.TemplateResponse(request=request, name="admin.html")
 
+@app.get("/components/fiat_balance")
+def get_fiat_balance(request: Request, current_user: models.User = Depends(get_current_user)):
+    return templates.TemplateResponse(request=request, name="components/fiat_balance.html", context={"user": current_user})
+
 @app.get("/components/profile_data")
 def profile_data(request: Request, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     portfolio = services.get_user_portfolio(db, current_user)
@@ -111,8 +109,6 @@ from fastapi import Form
 def add_to_watchlist(request: Request, symbol: str = Form(...), db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     crypto = db.query(models.Cryptocurrency).filter(models.Cryptocurrency.symbol == symbol.upper()).first()
     if not crypto:
-        # Instead of 404, we can just return the watchlist unchanged, or maybe add an error message context.
-        # But for simplicity, let's just return the watchlist.
         return get_watchlist(request, db, current_user, edit_mode=False)
     
     existing = db.query(models.Watchlist).filter(models.Watchlist.user_id == current_user.id, models.Watchlist.crypto_id == crypto.id).first()
@@ -215,6 +211,5 @@ def request_loan_endpoint(request: schemas.LoanRequest, db: Session = Depends(ge
 
 @app.post("/api/chat", response_model=schemas.ChatResponse)
 def chat_with_consultant(request: schemas.ChatRequest, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    # Notice we pass the db session so the chatbot's tools can read live crypto prices
     reply = chatbot.get_chat_response(db, current_user, request.message)
     return {"reply": reply}

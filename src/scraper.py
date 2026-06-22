@@ -27,7 +27,6 @@ def scrape_data():
             name = coin.get('name', '')
             current_price = float(coin.get('current_price') or 0.0)
             
-            # Format percentages
             c_1h = coin.get('price_change_percentage_1h_in_currency')
             change_1h = f"{c_1h:.2f}%" if c_1h is not None else "0.00%"
             
@@ -37,7 +36,6 @@ def scrape_data():
             c_7d = coin.get('price_change_percentage_7d_in_currency')
             change_7d = f"{c_7d:.2f}%" if c_7d is not None else "0.00%"
             
-            # Format large monetary values
             mcap = coin.get('market_cap')
             market_cap = f"${mcap:,.0f}" if mcap is not None else "$0"
             
@@ -50,7 +48,6 @@ def scrape_data():
                 crypto = Cryptocurrency(symbol=symbol, name=name)
                 db.add(crypto)
             
-            # Update the fields
             crypto.name = name
             crypto.current_price = current_price
             crypto.change_1h = change_1h

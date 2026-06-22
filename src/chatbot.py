@@ -6,7 +6,6 @@ from src.config import settings
 from src import services
 from src import models
 
-# Configure the Gemini API globally
 client = genai.Client(api_key=settings.GEMINI_API_KEY) if settings.GEMINI_API_KEY else None
 
 SYSTEM_PROMPT = """
@@ -22,9 +21,7 @@ def get_chat_response(db: Session, current_user: models.User, user_message: str)
     if not client:
         return "System Error: Gemini API Key is not configured."
 
-    # 1. Define the tools (functions) Gemini can use
     def get_crypto_price_and_stats(symbol: str) -> dict:
-        """Fetches the current price and market stats for a specific cryptocurrency symbol (e.g., BTC, ETH)."""
         crypto = services.get_crypto_by_symbol(db, symbol)
         if not crypto:
             return {"error": f"Could not find cryptocurrency with symbol {symbol} in our database."}
@@ -37,7 +34,6 @@ def get_chat_response(db: Session, current_user: models.User, user_message: str)
         }
 
     def get_recent_crypto_news(symbol: str) -> str:
-        """Fetches the most recent news headlines for a specific cryptocurrency."""
         if not settings.NEWS_API_KEY:
             return f"News API key not configured. Cannot fetch recent news for {symbol}."
 
@@ -59,7 +55,6 @@ def get_chat_response(db: Session, current_user: models.User, user_message: str)
             return f"Error fetching news for {symbol}: {str(e)}"
             
     def get_user_portfolio() -> dict:
-        """Fetches the current user's cryptocurrency portfolio, fiat balance, and total net worth."""
         portfolio = services.get_user_portfolio(db, current_user)
         from decimal import Decimal
         def convert_decimals(obj):
@@ -72,7 +67,6 @@ def get_chat_response(db: Session, current_user: models.User, user_message: str)
             return obj
         return convert_decimals(portfolio)
 
-    # 2. Initialize the model with the tools and persona
     chat = client.chats.create(
         model="gemini-2.5-flash",
         config=types.GenerateContentConfig(
@@ -81,7 +75,6 @@ def get_chat_response(db: Session, current_user: models.User, user_message: str)
         )
     )
 
-    # 3. Send the message
     response = chat.send_message(user_message)
     
     return response.text

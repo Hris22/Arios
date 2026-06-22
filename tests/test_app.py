@@ -28,21 +28,16 @@ def mock_scheduler():
 
 @pytest.fixture()
 def db_session():
-    # Create tables in the in-memory database
     Base.metadata.create_all(bind=engine)
     db = TestingSessionLocal()
     yield db
     db.close()
-    # Drop tables after the test runs to ensure a clean slate
     Base.metadata.drop_all(bind=engine)
 
 @pytest.fixture()
 def client(db_session, monkeypatch):
-    # Set a dummy secret key for JWT token creation during tests
-    # This prevents tests from failing if .env is not set.
     monkeypatch.setattr("src.config.settings.SECRET_KEY", "test_secret_key_for_jwt")
 
-    # Override the get_db dependency to use the test database
     def override_get_db():
         yield db_session
 

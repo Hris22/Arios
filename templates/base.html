@@ -34,6 +34,9 @@
             <!-- <div class="form-control hidden md:block" id="nav-search-container">
                 <input type="text" placeholder="Search Crypto..." class="input input-bordered w-24 md:w-auto" />
             </div> -->
+            <div id="fiat-balance-container" class="hidden md:flex items-center mr-2">
+                <!-- Fiat balance loaded here -->
+            </div>
             <div class="dropdown dropdown-end" id="user-dropdown-container">
                 <div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar">
                     <div class="w-10 rounded-full bg-transparent">
@@ -70,6 +73,11 @@
                     if (payload.role === 'ADMIN') {
                         const adminBtn = document.getElementById('admin-panel-btn');
                         if (adminBtn) adminBtn.classList.remove('hidden');
+                    }
+                    
+                    const fiatContainer = document.getElementById('fiat-balance-container');
+                    if (fiatContainer) {
+                        htmx.ajax('GET', '/components/fiat_balance', {target: '#fiat-balance-container', swap: 'innerHTML'});
                     }
                 } catch (e) {
                     console.error('Error decoding token:', e);

@@ -8,7 +8,6 @@ class Settings(BaseSettings):
     NEWS_API_KEY: str
     DATABASE_URL: str
 
-    # Pydantic V2 style for configuration
     model_config = SettingsConfigDict(env_file=".env")
 
 settings = Settings()

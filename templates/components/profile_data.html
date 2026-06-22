@@ -183,6 +183,12 @@ async function submitLoan() {
             if (data.new_fiat_balance !== undefined) {
                 const fiatEl = document.getElementById('fiat_balance_display');
                 if (fiatEl) fiatEl.textContent = '$' + data.new_fiat_balance.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                
+                // Update navbar fiat balance
+                const navbarFiatContainer = document.getElementById('fiat-balance-container');
+                if (navbarFiatContainer && typeof htmx !== 'undefined') {
+                    htmx.ajax('GET', '/components/fiat_balance', {target: '#fiat-balance-container', swap: 'innerHTML'});
+                }
             }
             if (data.new_net_worth !== undefined) {
                 const netWorthEl = document.getElementById('net_worth_display');

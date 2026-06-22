@@ -37,3 +37,5 @@ Thumbs.db
 # Other
 *.log
 .mypy_cache/
+
+docs/

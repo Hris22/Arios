@@ -24,9 +24,7 @@
 </ul>
 
 <div class="flex gap-2 mb-2 justify-center">
-    <!-- Plus Button to toggle Add Mode -->
     <button class="btn btn-outline btn-sm w-1/2" onclick="document.getElementById('add-watchlist-container').classList.toggle('hidden')">➕</button>
-    <!-- Minus Button to toggle Edit Mode -->
     <button class="btn btn-outline btn-sm w-1/2" hx-get="/components/watchlist?edit_mode={{ 'false' if edit_mode else 'true' }}" hx-target="#watchlist">➖</button>
 </div>
 

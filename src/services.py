@@ -11,10 +11,8 @@ from src import schemas
 from src.config import settings
 
 def get_password_hash(password: str) -> str:
-    # bcrypt requires bytes, so we encode the password
     salt = bcrypt.gensalt()
     hashed_password = bcrypt.hashpw(password.encode('utf-8'), salt)
-    # decode to return a string for storage in the DB
     return hashed_password.decode('utf-8')
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:

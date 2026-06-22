@@ -397,6 +397,10 @@ async function executeTrade() {
             if (statsDiv && typeof htmx !== 'undefined') {
                 htmx.trigger(statsDiv, 'load');
             }
+            const fiatContainer = document.getElementById('fiat-balance-container');
+            if (fiatContainer && typeof htmx !== 'undefined') {
+                htmx.ajax('GET', '/components/fiat_balance', {target: '#fiat-balance-container', swap: 'innerHTML'});
+            }
             const watchlistDiv = document.getElementById('watchlist');
             if (watchlistDiv && typeof htmx !== 'undefined') {
                 htmx.trigger(watchlistDiv, 'load');
